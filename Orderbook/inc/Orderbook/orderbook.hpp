@@ -18,6 +18,7 @@ public:
     {}
     ~Orderbook()
     {
+        shutdown_.store(true, std::memory_order_release);
         shutdownConditionVariable_.notify_one();
         ordersPruneThread_.join();
     }
@@ -65,6 +66,7 @@ private:
     mutable std::mutex ordersMutex_;
     std::thread ordersPruneThread_;
     std::condition_variable shutdownConditionVariable_;
+    std::atomic<bool> shutdown_{ false };
 
     bool CanMatch(Side side, Price price) const;
     Trades MatchOrders();
