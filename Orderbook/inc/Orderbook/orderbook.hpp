@@ -10,6 +10,9 @@
 #include <algorithm>
 #include <numeric>
 
+#include "domain_types.hpp"
+#include "trade_info.hpp"
+
 namespace osbornex {
 
 enum class OrderType
@@ -111,12 +114,6 @@ private:
     Quantity quantity_;
 };
 
-struct TradeInfo
-{
-    OrderId orderId_;
-    Price price_;
-    Quantity quantity_;
-};
 
 class Trade
 {
