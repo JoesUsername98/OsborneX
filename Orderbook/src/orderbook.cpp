@@ -63,6 +63,22 @@ Trades Orderbook::AddOrder(OrderPointer order)
         !CanMatch(order->GetSide(), order->GetPrice()))
         return {};
 
+    if (order->GetOrderType() == OrderType::Market)
+    {
+        if (order->GetSide() == Side::Buy && !asks_.empty())
+        {
+            const auto& [worstAsk, _] = *asks_.rbegin();
+            order->ToGoodTillCancel(worstAsk);
+        }
+        else if (order->GetSide() == Side::Sell && !bids_.empty())
+        {
+            const auto& [worstBid, _] = *bids_.rbegin();
+            order->ToGoodTillCancel(worstBid);
+        }
+        else
+            return { };
+    }
+
     if (order->GetOrderType() == OrderType::FillOrKill && !CanFullyFill(order->GetSide(), order->GetPrice(), order->GetInitialQuantity()))
         return { };
 
@@ -74,14 +90,14 @@ Trades Orderbook::AddOrder(OrderPointer order)
     {
         auto& bidsAtPrice = bids_[order->GetPrice()];
         bidsAtPrice.push_back(order);
-        iterator = std::next(bidsAtPrice.begin(), bidsAtPrice.size() - 1);
+        iterator = std::prev(bidsAtPrice.end());
         break;
     }
     case Side::Sell: 
     {
         auto& asksAtPrice = asks_[order->GetPrice()];
         asksAtPrice.push_back(order);
-        iterator = std::next(asksAtPrice.begin(), asksAtPrice.size() - 1);
+        iterator = std::prev(asksAtPrice.end());
         break;
     }
     default:
@@ -127,6 +143,7 @@ void Orderbook::PruneGoodForDayOrders()
 
             if (shutdown_.load(std::memory_order_acquire) ||
                 shutdownConditionVariable_.wait_for(ordersLock, till) == std::cv_status::no_timeout)
+                return;
         }
 
         OrderIds orderIds;

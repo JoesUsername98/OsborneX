@@ -7,7 +7,8 @@ enum class OrderType
     GoodTillCancel,
     FillAndKill,
     FillOrKill,
-    GoodForDay
+    GoodForDay,
+    Market
 };
 
 } // namespace osbornex
