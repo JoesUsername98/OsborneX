@@ -2,8 +2,4 @@
 
 namespace osbornex {
 
-bool OrderBook::empty() const noexcept {
-    return true;
-}
-
 } // namespace osbornex

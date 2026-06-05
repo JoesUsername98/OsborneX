@@ -8,6 +8,7 @@
 #include "trade.hpp"
 #include "orderbook_level_info.hpp"
 #include "order.hpp"
+#include "order_modify.hpp"
 
 namespace osbornex {
 
@@ -252,15 +253,6 @@ private:
     }
 
 
-};
-
-
-/// <summary>
-/// Get rid of me, I am a redundant stub for benchmarking and testing
-/// </summary>
-class OrderBook {
-public:
-    [[nodiscard]] bool empty() const noexcept;
 };
 
 } // namespace osbornex
