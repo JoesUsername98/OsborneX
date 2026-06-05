@@ -13,14 +13,9 @@
 #include "domain_types.hpp"
 #include "trade.hpp"
 #include "order_type.hpp"
+#include "side.hpp"
 
 namespace osbornex {
-
-enum class Side
-{
-    Buy,
-    Sell
-};
 
 struct LevelInfo 
 {
