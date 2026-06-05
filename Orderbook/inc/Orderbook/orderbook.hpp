@@ -2,7 +2,6 @@
 #include <expected>
 #include <string>
 #include <format>
-#include <vector>
 #include <memory>
 #include <list>
 #include <map>
@@ -14,16 +13,10 @@
 #include "trade.hpp"
 #include "order_type.hpp"
 #include "side.hpp"
+#include "level_info.hpp"
 
 namespace osbornex {
 
-struct LevelInfo 
-{
-    Price price_;
-    Quantity quantity_;
-};
-
-using LevelInfos = std::vector<LevelInfo>;
 
 struct OrderbookLevelInfos 
 {
