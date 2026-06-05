@@ -7,11 +7,25 @@
 #include "order_modify.hpp"
 #include "orderbook_level_info.hpp"
 #include "trade.hpp"
+#include <mutex>
 
 namespace osbornex {
 
-class Orderbook {
+class Orderbook 
+{
 public:
+    Orderbook() : ordersPruneThread_{ [this] { PruneGoodForDayOrders(); } } 
+    {}
+    ~Orderbook()
+    {
+        shutdownConditionVariable_.notify_one();
+        ordersPruneThread_.join();
+    }
+    Orderbook(const Orderbook&) = delete;
+    void operator=(const Orderbook&) = delete;
+    Orderbook(Orderbook&&) = delete;
+    void operator=(Orderbook&&) = delete;
+
     Trades AddOrder(OrderPointer order);
     void CancelOrder(OrderId orderId);
     Trades ModifyOrder(OrderModify order);
@@ -48,10 +62,16 @@ private:
     AskLevels asks_;
     Orders orders_;
 
+    mutable std::mutex ordersMutex_;
+    std::thread ordersPruneThread_;
+    std::condition_variable shutdownConditionVariable_;
+
     bool CanMatch(Side side, Price price) const;
     Trades MatchOrders();
+    void CancelOrders(OrderIds orderIds);
     void CancelOrderInternal(OrderId orderId);
     bool CanFullyFill(Side side, Price price, Quantity quantity) const;
+    void PruneGoodForDayOrders();
 
     void OnOrderCancelled(OrderPointer order);
     void OnOrderAdded(OrderPointer order);
