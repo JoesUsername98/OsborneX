@@ -9,20 +9,12 @@
 #include <algorithm>
 #include <numeric>
 
-#include "domain_types.hpp"
 #include "trade.hpp"
 #include "order_type.hpp"
 #include "side.hpp"
-#include "level_info.hpp"
+#include "orderbook_level_info.hpp"
 
 namespace osbornex {
-
-
-struct OrderbookLevelInfos 
-{
-    LevelInfos bids_;
-    LevelInfos asks_;
-};
 
 class Order
 {
