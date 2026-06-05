@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <numeric>
 #include <chrono>
+#include <optional>
 
 namespace osbornex {
 
