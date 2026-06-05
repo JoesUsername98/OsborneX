@@ -42,11 +42,18 @@ Trades Orderbook::AddOrder(OrderPointer order)
             .order_ = order,
             .location_ = iterator,
         });
-
+    
+    OnOrderAdded(order);
+    
     return MatchOrders();
 }
 
 void Orderbook::CancelOrder(OrderId orderId) 
+{
+    CancelOrderInternal(orderId);
+}
+
+void Orderbook::CancelOrderInternal(OrderId orderId) 
 {
     if (!orders_.contains(orderId))
         return;
