@@ -6,7 +6,8 @@ enum class OrderType
 {
     GoodTillCancel,
     FillAndKill,
-    FillOrKill
+    FillOrKill,
+    GoodForDay
 };
 
 } // namespace osbornex

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <chrono>
 
 namespace osbornex {
 
@@ -52,6 +53,8 @@ bool Orderbook::CanFullyFill(Side side, Price price, Quantity quantity) const
 
 Trades Orderbook::AddOrder(OrderPointer order) 
 {
+    std::scoped_lock ordersLock{ ordersMutex_ };
+
     if (orders_.contains(order->GetOrderId()))
         return {};
 
@@ -96,8 +99,68 @@ Trades Orderbook::AddOrder(OrderPointer order)
     return MatchOrders();
 }
 
+void Orderbook::PruneGoodForDayOrders()
+{
+    using namespace std::chrono;
+    const auto end = hours(16);
+
+    while (true)
+    {
+        const auto now = system_clock::now();
+        const auto now_c = system_clock::to_time_t(now);
+        std::tm now_parts;
+        localtime_s(&now_parts, &now_c);
+
+        if (now_parts.tm_hour >= end.count())
+            now_parts.tm_mday += 1;
+
+        now_parts.tm_hour = end.count();
+        now_parts.tm_min = 0;
+        now_parts.tm_sec = 0;
+
+        auto next = system_clock::from_time_t(mktime(&now_parts));
+        auto till = next - now + milliseconds(100);
+
+        {
+            std::unique_lock ordersLock{ ordersMutex_ };
+
+            if (shutdownConditionVariable_.wait_for(ordersLock, till) == std::cv_status::no_timeout)
+                return;
+        }
+
+        OrderIds orderIds;
+        orderIds.reserve(orders_.size());
+
+        {
+            std::scoped_lock ordersLock{ ordersMutex_ };
+
+            for (const auto& [_, entry] : orders_)
+            {
+                const auto& order = entry.order_;
+
+                if (order->GetOrderType() != OrderType::GoodForDay)
+                    continue;
+
+                orderIds.push_back(order->GetOrderId());
+            }
+        }
+
+        CancelOrders(orderIds);
+    }
+}
+
+void Orderbook::CancelOrders(OrderIds orderIds)
+{
+    std::scoped_lock ordersLock{ ordersMutex_ };
+
+    for (const auto& orderId : orderIds)
+        CancelOrderInternal(orderId);
+}
+
 void Orderbook::CancelOrder(OrderId orderId) 
 {
+    std::scoped_lock ordersLock{ ordersMutex_ };
+
     CancelOrderInternal(orderId);
 }
 
@@ -138,16 +201,25 @@ void Orderbook::CancelOrderInternal(OrderId orderId)
 
 Trades Orderbook::ModifyOrder(OrderModify order) 
 {
-    if (!orders_.contains(order.GetOrderId()))
-        return {};
+    OrderType orderType;
 
-    const auto& [existingOrder, _] = orders_.at(order.GetOrderId());
+    {
+        std::scoped_lock ordersLock{ ordersMutex_ };
+
+        if (!orders_.contains(order.GetOrderId()))
+            return { };
+
+        const auto& [existingOrder, _] = orders_.at(order.GetOrderId());
+        orderType = existingOrder->GetOrderType();
+    }
+
     CancelOrder(order.GetOrderId());
-    return AddOrder(order.ToOrderPointer(existingOrder->GetOrderType()));
+    return AddOrder(order.ToOrderPointer(orderType));
 }
 
 std::size_t Orderbook::Size() const 
 {
+    std::scoped_lock ordersLock{ ordersMutex_ };
     return orders_.size();
 }
 
@@ -318,5 +390,6 @@ void Orderbook::UpdateLevelData(Price price, Quantity quantity, LevelData::Actio
     if (data.count_ == 0)
         levelData_.erase(price);
 }
+
 
 } // namespace osbornex
