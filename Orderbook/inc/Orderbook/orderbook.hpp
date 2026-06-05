@@ -12,14 +12,9 @@
 
 #include "domain_types.hpp"
 #include "trade.hpp"
+#include "order_type.hpp"
 
 namespace osbornex {
-
-enum class OrderType
-{
-    GoodTillCancel,
-    FillAndKill
-};
 
 enum class Side
 {
