@@ -1,0 +1,23 @@
+function(osbornex_set_solution_folders)
+    set(_vs_presets_folder "Visual Studio Presets")
+    set(_orderbook_folder "Orderbook")
+    set(_dependencies_folder "Dependencies")
+
+    foreach(target IN ITEMS ALL_BUILD ZERO_CHECK INSTALL RUN_TESTS)
+        if(TARGET ${target})
+            set_target_properties(${target} PROPERTIES FOLDER "${_vs_presets_folder}")
+        endif()
+    endforeach()
+
+    foreach(target IN ITEMS Orderbook OrderbookTest OrderbookBench run-tests run-benchmarks)
+        if(TARGET ${target})
+            set_target_properties(${target} PROPERTIES FOLDER "${_orderbook_folder}")
+        endif()
+    endforeach()
+
+    foreach(target IN ITEMS gtest gtest_main gmock gmock_main benchmark benchmark_main)
+        if(TARGET ${target})
+            set_target_properties(${target} PROPERTIES FOLDER "${_dependencies_folder}")
+        endif()
+    endforeach()
+endfunction()
