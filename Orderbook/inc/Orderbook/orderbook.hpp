@@ -51,6 +51,7 @@ private:
     bool CanMatch(Side side, Price price) const;
     Trades MatchOrders();
     void CancelOrderInternal(OrderId orderId);
+    bool CanFullyFill(Side side, Price price, Quantity quantity) const;
 
     void OnOrderCancelled(OrderPointer order);
     void OnOrderAdded(OrderPointer order);
