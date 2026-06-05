@@ -5,6 +5,51 @@
 
 namespace osbornex {
 
+bool Orderbook::CanFullyFill(Side side, Price price, Quantity quantity) const
+{
+    if (!CanMatch(side, price))
+        return false;
+
+    std::optional<Price> threshold;
+
+    switch (side)
+    {
+    case Side::Buy:
+    {
+        const auto [askPrice, _] = *asks_.begin();
+        threshold = askPrice;
+        break;
+    }
+    case Side::Sell:
+    {
+        const auto [bidPrice, _] = *bids_.begin();
+        threshold = bidPrice;
+        break;
+    }
+    default:
+        std::unreachable();
+    }
+
+    for (const auto& [levelPrice, levelData] : levelData_)
+    {
+        if (threshold.has_value() &&
+            (side == Side::Buy && threshold.value() > levelPrice) ||
+            (side == Side::Sell && threshold.value() < levelPrice))
+            continue;
+
+        if ((side == Side::Buy && levelPrice > price) ||
+            (side == Side::Sell && levelPrice < price))
+            continue;
+
+        if (quantity <= levelData.quantity_)
+            return true;
+
+        quantity -= levelData.quantity_;
+    }
+
+    return false;
+}
+
 Trades Orderbook::AddOrder(OrderPointer order) 
 {
     if (orders_.contains(order->GetOrderId()))
@@ -13,6 +58,9 @@ Trades Orderbook::AddOrder(OrderPointer order)
     if (order->GetOrderType() == OrderType::FillAndKill &&
         !CanMatch(order->GetSide(), order->GetPrice()))
         return {};
+
+    if (order->GetOrderType() == OrderType::FillOrKill && !CanFullyFill(order->GetSide(), order->GetPrice(), order->GetInitialQuantity()))
+        return { };
 
     OrderPointers::iterator iterator;
 
