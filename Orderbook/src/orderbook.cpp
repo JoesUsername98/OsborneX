@@ -77,6 +77,8 @@ void Orderbook::CancelOrder(OrderId orderId)
     default:
         std::unreachable();
     }
+
+    OnOrderCancelled(orders_.at(orderId).order_);
 }
 
 Trades Orderbook::ModifyOrder(OrderModify order) 
@@ -204,6 +206,9 @@ Trades Orderbook::MatchOrders()
                     .quantity_ = quantity,
                 },
             });
+
+            OnOrderMatched(bid->GetPrice(), quantity, bid->IsFilled());
+            OnOrderMatched(ask->GetPrice(), quantity, ask->IsFilled());
         }
 
         if (!bids_.empty()) 
@@ -224,6 +229,39 @@ Trades Orderbook::MatchOrders()
     }
 
     return trades;
+}
+
+void Orderbook::OnOrderCancelled(OrderPointer order)
+{
+    UpdateLevelData(order->GetPrice(), order->GetRemainingQuantity(), LevelData::Action::Remove);
+}
+
+void Orderbook::OnOrderAdded(OrderPointer order)
+{
+    UpdateLevelData(order->GetPrice(), order->GetInitialQuantity(), LevelData::Action::Add);
+}
+
+void Orderbook::OnOrderMatched(Price price, Quantity quantity, bool isFullyFilled)
+{
+    UpdateLevelData(price, quantity, isFullyFilled ? LevelData::Action::Remove : LevelData::Action::Match);
+}
+
+void Orderbook::UpdateLevelData(Price price, Quantity quantity, LevelData::Action action)
+{
+    auto& data = levelData_[price];
+
+    data.count_ += action == LevelData::Action::Remove ? -1 : action == LevelData::Action::Add ? 1 : 0;
+    if (action == LevelData::Action::Remove || action == LevelData::Action::Match)
+    {
+        data.quantity_ -= quantity;
+    }
+    else
+    {
+        data.quantity_ += quantity;
+    }
+
+    if (data.count_ == 0)
+        levelData_.erase(price);
 }
 
 } // namespace osbornex
