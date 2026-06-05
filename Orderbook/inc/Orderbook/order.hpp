@@ -9,7 +9,7 @@
 #include "domain_types.hpp"
 #include "order_type.hpp"
 #include "side.hpp"
-
+#include "constants.hpp"
 namespace osbornex {
     
     class Order
@@ -23,6 +23,10 @@ namespace osbornex {
         , initialQuantity_ { quantity }
         , remainingQuantity_ { quantity }
         { }
+
+        Order(OrderId orderId, Side side, Quantity quantity)
+            : Order(OrderType::Market, orderId, side, Constants::InvalidPrice, quantity)
+        {}
     
         OrderType GetOrderType() const { return orderType_; }
         OrderId GetOrderId() const { return orderId_; }
@@ -43,6 +47,16 @@ namespace osbornex {
                 );*/
     
             remainingQuantity_ -= quantity;
+        }
+
+        /*[[nodiscard]] std::expected<void, std::string>*/
+        void ToGoodTillCancel(Price price)
+        {
+            if (GetOrderType() != OrderType::Market)
+                throw std::logic_error(std::format("Order ({}) cannot have its price adjusted, only market orders can.", GetOrderId()));
+
+            price_ = price;
+            orderType_ = OrderType::GoodTillCancel;
         }
     
     
