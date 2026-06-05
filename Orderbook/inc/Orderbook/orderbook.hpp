@@ -19,21 +19,43 @@ public:
     OrderbookLevelInfos GetOrderInfos();
 
 private:
-    struct OrderEntry {
+    struct OrderEntry 
+    {
         OrderPointer order_{};
         OrderPointers::iterator location_;
+    };
+
+    struct LevelData
+    {
+        Quantity quantity_{ };
+        Quantity count_{ };
+
+        enum class Action
+        {
+            Add,
+            Remove,
+            Match
+        };
     };
 
     using BidLevels = std::map<Price, OrderPointers, std::greater<Price>>;
     using AskLevels = std::map<Price, OrderPointers, std::less<Price>>;
     using Orders = std::unordered_map<OrderId, OrderEntry>;
+    using LevelDataMap = std::unordered_map<Price, LevelData>;
 
+    LevelDataMap levelData_;
     BidLevels bids_;
     AskLevels asks_;
     Orders orders_;
 
     bool CanMatch(Side side, Price price) const;
     Trades MatchOrders();
+    
+
+    void OnOrderCancelled(OrderPointer order);
+    void OnOrderAdded(OrderPointer order);
+    void OnOrderMatched(Price price, Quantity quantity, bool isFullyFilled);
+    void UpdateLevelData(Price price, Quantity quantity, LevelData::Action action);
 };
 
 } // namespace osbornex
