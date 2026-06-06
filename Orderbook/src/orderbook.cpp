@@ -141,8 +141,12 @@ void Orderbook::PruneGoodForDayOrders()
         {
             std::unique_lock ordersLock{ ordersMutex_ };
 
-            if (shutdown_.load(std::memory_order_acquire) ||
-                shutdownConditionVariable_.wait_for(ordersLock, till) == std::cv_status::no_timeout)
+            const bool shuttingDown = shutdownConditionVariable_.wait_for(
+                ordersLock,
+                till,
+                [this] { return shutdown_.load(std::memory_order_acquire); });
+                
+            if (shuttingDown)
                 return;
         }
 

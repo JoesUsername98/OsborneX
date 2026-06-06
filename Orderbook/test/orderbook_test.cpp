@@ -1,12 +1,16 @@
+#include <gtest/gtest.h>
+#include <chrono>
+
 #include <Orderbook/orderbook.hpp>
 
-#include <gtest/gtest.h>
 
 namespace osbornex {
 namespace {
 
 TEST(OrderBookTest, EmptyByDefault) {
-    EXPECT_TRUE(true);
+    Orderbook myOrderbook;
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_EQ( myOrderbook.Size(),  Quantity{ 0 } );
 }
 
 } // namespace
