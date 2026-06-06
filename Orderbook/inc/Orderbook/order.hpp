@@ -35,7 +35,7 @@ namespace osbornex {
         Quantity GetInitialQuantity() const{ return initialQuantity_; }
         Quantity GetRemainingQuantity() const { return remainingQuantity_; }
         Quantity GetFilledQuantity() const { return initialQuantity_ - remainingQuantity_; }
-        bool IsFilled() const { return initialQuantity_ == remainingQuantity_;  }
+        bool IsFilled() const { return remainingQuantity_ == Quantity{0};  }
     
         /*[[nodiscard]] std::expected<void, std::string>*/
         void Fill(Quantity quantity)
