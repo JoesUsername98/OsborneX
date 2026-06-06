@@ -3,7 +3,7 @@
 
 #include <Orderbook/orderbook.hpp>
 
-namespace osbornex {
+namespace OsborneX {
 namespace {
 
 using namespace std::chrono;
@@ -69,4 +69,4 @@ TEST(OrderbookTestMarketClose, IfAfterCutoffOnSunday_ThenNextCloseIsMonday) {
 }
 
 } // namespace
-} // namespace osbornex
+} // namespace OsborneX

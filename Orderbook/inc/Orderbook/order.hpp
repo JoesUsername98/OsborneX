@@ -10,7 +10,7 @@
 #include "order_type.hpp"
 #include "side.hpp"
 #include "constants.hpp"
-namespace osbornex {
+namespace OsborneX {
     
     class Order
     {
@@ -25,7 +25,7 @@ namespace osbornex {
         { }
 
         Order(OrderId orderId, Side side, Quantity quantity)
-            : Order(OrderType::Market, orderId, side, Constants::InvalidPrice, quantity)
+            : Order(OrderType::Market, orderId, side, constants::InvalidPrice, quantity)
         {}
     
         OrderType GetOrderType() const { return orderType_; }
@@ -72,4 +72,4 @@ namespace osbornex {
 using OrderPointer = std::shared_ptr<Order>;
 using OrderPointers = std::list<OrderPointer>;
 
-} // namespace osbornex
+} // namespace OsborneX

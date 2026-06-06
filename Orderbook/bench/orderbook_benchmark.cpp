@@ -2,7 +2,7 @@
 
 #include <benchmark/benchmark.h>
 
-namespace osbornex {
+namespace OsborneX {
 
 static void BM_OrderBookEmpty(benchmark::State& state) {
     for (auto _ : state) {
@@ -12,6 +12,6 @@ static void BM_OrderBookEmpty(benchmark::State& state) {
 
 BENCHMARK(BM_OrderBookEmpty);
 
-} // namespace osbornex
+} // namespace OsborneX
 
 BENCHMARK_MAIN();

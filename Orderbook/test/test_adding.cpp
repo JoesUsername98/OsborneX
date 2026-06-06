@@ -3,13 +3,13 @@
 
 #include <Orderbook/orderbook.hpp>
 
-namespace osbornex {
+namespace OsborneX {
 namespace {
 
 TEST(OrderbookTestAdding, IfMarketBidAdded_WhenEmpty_ThenNoTradesNoOrdersStaysOnBook) {
     // Arrange
     Orderbook myOrderbook{ std::chrono::hours{16} };
-    OrderPointer myOrder = std::make_shared<Order>( OrderType::Market, OrderId{0uz}, Side::Buy, Constants::InvalidPrice, Quantity{1uz} );
+    OrderPointer myOrder = std::make_shared<Order>( OrderType::Market, OrderId{0uz}, Side::Buy, constants::InvalidPrice, Quantity{1uz} );
     
     // Act 
     const auto trades = myOrderbook.AddOrder(myOrder);
@@ -165,4 +165,4 @@ TEST(OrderbookTestAdding, IfGoodTillCancelBidAdded_When1AskOnBookAtWorseLevel_Th
 }
 
 } // namespace
-} // namespace osbornex
+} // namespace OsborneX

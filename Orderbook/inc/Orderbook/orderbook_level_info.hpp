@@ -2,7 +2,7 @@
 
 #include "level_info.hpp"
 
-namespace osbornex {
+namespace OsborneX {
 
 struct OrderbookLevelInfos 
 {
@@ -10,4 +10,4 @@ struct OrderbookLevelInfos
     LevelInfos asks_;
 };
 
-} // namespace osbornex
+} // namespace OsborneX
