@@ -187,7 +187,7 @@ void Orderbook::CancelOrderInternal(OrderId orderId)
     if (!orders_.contains(orderId))
         return;
 
-    const auto& [order, iterator] = orders_.at(orderId);
+    const auto [order, iterator] = orders_.at(orderId);
     orders_.erase(orderId);
 
     switch (order->GetSide()) 
