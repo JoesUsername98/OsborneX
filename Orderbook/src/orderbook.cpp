@@ -53,65 +53,67 @@ bool Orderbook::CanFullyFill(Side side, Price price, Quantity quantity) const
 
 Trades Orderbook::AddOrder(OrderPointer order) 
 {
-    std::scoped_lock ordersLock{ ordersMutex_ };
-
-    if (orders_.contains(order->GetOrderId()))
-        return {};
-
-    if (order->GetOrderType() == OrderType::FillAndKill &&
-        !CanMatch(order->GetSide(), order->GetPrice()))
-        return {};
-
-    if (order->GetOrderType() == OrderType::Market)
     {
-        if (order->GetSide() == Side::Buy && !asks_.empty())
+        std::scoped_lock ordersLock{ ordersMutex_ };
+
+        if (orders_.contains(order->GetOrderId()))
+            return {};
+
+        if (order->GetOrderType() == OrderType::FillAndKill &&
+            !CanMatch(order->GetSide(), order->GetPrice()))
+            return {};
+
+        if (order->GetOrderType() == OrderType::Market)
         {
-            const auto& [worstAsk, _] = *asks_.rbegin();
-            order->ToGoodTillCancel(worstAsk);
+            if (order->GetSide() == Side::Buy && !asks_.empty())
+            {
+                const auto& [worstAsk, _] = *asks_.rbegin();
+                order->ToGoodTillCancel(worstAsk);
+            }
+            else if (order->GetSide() == Side::Sell && !bids_.empty())
+            {
+                const auto& [worstBid, _] = *bids_.rbegin();
+                order->ToGoodTillCancel(worstBid);
+            }
+            else
+                return { };
         }
-        else if (order->GetSide() == Side::Sell && !bids_.empty())
-        {
-            const auto& [worstBid, _] = *bids_.rbegin();
-            order->ToGoodTillCancel(worstBid);
-        }
-        else
+
+        if (order->GetOrderType() == OrderType::FillOrKill && !CanFullyFill(order->GetSide(), order->GetPrice(), order->GetInitialQuantity()))
             return { };
+
+        OrderPointers::iterator iterator;
+
+        switch (order->GetSide()) 
+        {
+        case Side::Buy: 
+        {
+            auto& bidsAtPrice = bids_[order->GetPrice()];
+            bidsAtPrice.push_back(order);
+            iterator = std::prev(bidsAtPrice.end());
+            break;
+        }
+        case Side::Sell: 
+        {
+            auto& asksAtPrice = asks_[order->GetPrice()];
+            asksAtPrice.push_back(order);
+            iterator = std::prev(asksAtPrice.end());
+            break;
+        }
+        default:
+            std::unreachable();
+        }
+
+        orders_.emplace(
+            order->GetOrderId(),
+            OrderEntry{
+                .order_ = order,
+                .location_ = iterator,
+            });
+        
+        OnOrderAdded(order);
     }
 
-    if (order->GetOrderType() == OrderType::FillOrKill && !CanFullyFill(order->GetSide(), order->GetPrice(), order->GetInitialQuantity()))
-        return { };
-
-    OrderPointers::iterator iterator;
-
-    switch (order->GetSide()) 
-    {
-    case Side::Buy: 
-    {
-        auto& bidsAtPrice = bids_[order->GetPrice()];
-        bidsAtPrice.push_back(order);
-        iterator = std::prev(bidsAtPrice.end());
-        break;
-    }
-    case Side::Sell: 
-    {
-        auto& asksAtPrice = asks_[order->GetPrice()];
-        asksAtPrice.push_back(order);
-        iterator = std::prev(asksAtPrice.end());
-        break;
-    }
-    default:
-        std::unreachable();
-    }
-
-    orders_.emplace(
-        order->GetOrderId(),
-        OrderEntry{
-            .order_ = order,
-            .location_ = iterator,
-        });
-    
-    OnOrderAdded(order);
-    
     return MatchOrders();
 }
 
@@ -213,7 +215,7 @@ void Orderbook::CancelOrderInternal(OrderId orderId)
         std::unreachable();
     }
 
-    OnOrderCancelled(orders_.at(orderId).order_);
+    OnOrderCancelled(order);
 }
 
 Trades Orderbook::ModifyOrder(OrderModify order) 
@@ -299,6 +301,7 @@ bool Orderbook::CanMatch(Side side, Price price) const
 
 Trades Orderbook::MatchOrders() 
 {
+    std::scoped_lock ordersLock{ ordersMutex_ };
     Trades trades;
     trades.reserve(orders_.size());
 
@@ -307,64 +310,71 @@ Trades Orderbook::MatchOrders()
         if (bids_.empty() || asks_.empty())
             break;
 
-        auto& [bestBidPrice, bidsAtBestPrice] = *bids_.begin();
-        auto& [bestAskPrice, asksAtBestPrice] = *asks_.begin();
+        const Price bestBidPrice = bids_.begin()->first;
+        const Price bestAskPrice = asks_.begin()->first;
 
         if (bestBidPrice < bestAskPrice)
             break;
 
+        auto& bidsAtBestPrice = bids_.at(bestBidPrice);
+        auto& asksAtBestPrice = asks_.at(bestAskPrice);
+
         while (!bidsAtBestPrice.empty() && !asksAtBestPrice.empty()) 
         {
-            auto& bid = bidsAtBestPrice.front();
-            auto& ask = asksAtBestPrice.front();
+            const OrderPointer bid = bidsAtBestPrice.front();
+            const OrderPointer ask = asksAtBestPrice.front();
 
-            Quantity quantity =
+            const Quantity quantity =
                 std::min(bid->GetRemainingQuantity(), ask->GetRemainingQuantity());
             bid->Fill(quantity);
             ask->Fill(quantity);
 
-            if (bid->IsFilled()) 
+            const OrderId bidId = bid->GetOrderId();
+            const OrderId askId = ask->GetOrderId();
+            const Price bidPrice = bid->GetPrice();
+            const Price askPrice = ask->GetPrice();
+            const bool bidFilled = bid->IsFilled();
+            const bool askFilled = ask->IsFilled();
+
+            if (bidFilled) 
             {
                 bidsAtBestPrice.pop_front();
-                orders_.erase(bid->GetOrderId());
-                if (bidsAtBestPrice.empty())
-                    bids_.erase(bestBidPrice);
+                orders_.erase(bidId);
             }
 
-            if (ask->IsFilled()) {
+            if (askFilled) 
+            {
                 asksAtBestPrice.pop_front();
-                orders_.erase(ask->GetOrderId());
-                if (asksAtBestPrice.empty())
-                    asks_.erase(bestAskPrice);
+                orders_.erase(askId);
             }
 
             trades.push_back(Trade{
                 TradeInfo{
-                    .orderId_ = bid->GetOrderId(),
-                    .price_ = bid->GetPrice(),
+                    .orderId_ = bidId,
+                    .price_ = bidPrice,
                     .quantity_ = quantity,
                 },
                 TradeInfo{
-                    .orderId_ = ask->GetOrderId(),
-                    .price_ = ask->GetPrice(),
+                    .orderId_ = askId,
+                    .price_ = askPrice,
                     .quantity_ = quantity,
                 },
             });
 
-            OnOrderMatched(bid->GetPrice(), quantity, bid->IsFilled());
-            OnOrderMatched(ask->GetPrice(), quantity, ask->IsFilled());
+            OnOrderMatched(bidPrice, quantity, bidFilled);
+            OnOrderMatched(askPrice, quantity, askFilled);
+        }
 
-            if (bidsAtBestPrice.empty())
-            {
-                bids_.erase(bestBidPrice);
-                levelData_.erase(bestBidPrice);
-            }
+        if (bidsAtBestPrice.empty())
+        {
+            bids_.erase(bestBidPrice);
+            levelData_.erase(bestBidPrice);
+        }
     
-            if (asksAtBestPrice.empty())
-            {
-                asks_.erase(bestAskPrice);
-                levelData_.erase(bestAskPrice);
-            }
+        if (asksAtBestPrice.empty())
+        {
+            asks_.erase(bestAskPrice);
+            levelData_.erase(bestAskPrice);
         }
 
         if (!bids_.empty()) 
@@ -372,7 +382,7 @@ Trades Orderbook::MatchOrders()
             auto& [_, dirtyBids] = *bids_.begin();
             auto& bidOrder = dirtyBids.front();
             if (bidOrder->GetOrderType() == OrderType::FillAndKill)
-                CancelOrder(bidOrder->GetOrderId());
+                CancelOrderInternal(bidOrder->GetOrderId());
         }
 
         if (!asks_.empty()) 
@@ -380,7 +390,7 @@ Trades Orderbook::MatchOrders()
             auto& [_, dirtAsks] = *asks_.begin();
             auto& askOrder = dirtAsks.front();
             if (askOrder->GetOrderType() == OrderType::FillAndKill)
-                CancelOrder(askOrder->GetOrderId());
+                CancelOrderInternal(askOrder->GetOrderId());
         }
     }
 
