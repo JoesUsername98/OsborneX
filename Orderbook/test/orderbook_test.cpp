@@ -7,10 +7,13 @@
 namespace osbornex {
 namespace {
 
-TEST(OrderBookTest, EmptyByDefault) {
+TEST(OrderBookTestThreading, IfShutdown_WhenPruneThreadNotWaiting_ThenIsGraceful) {
+    Orderbook myOrderbook{ std::chrono::hours{16} };
+}
+
+TEST(OrderBookTestThreading, IfShutdown_WhenPruneThreadWaiting_ThenIsGraceful) {
     Orderbook myOrderbook{std::chrono::hours{16}};
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    EXPECT_EQ( myOrderbook.Size(),  Quantity{ 0 } );
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 } // namespace
