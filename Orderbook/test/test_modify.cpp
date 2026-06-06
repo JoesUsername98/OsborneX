@@ -3,7 +3,7 @@
 
 #include <Orderbook/orderbook.hpp>
 
-namespace osbornex {
+namespace OsborneX {
 namespace {
 
 TEST(OrderbookTestModify, IfUnknownOrderModified_WhenEmpty_ThenReturnsEmpty) {
@@ -133,4 +133,4 @@ TEST(OrderbookTestModify, IfGoodTillCancelBidModified_WhenPriceChanges_ThenOldLe
 }
 
 } // namespace
-} // namespace osbornex
+} // namespace OsborneX

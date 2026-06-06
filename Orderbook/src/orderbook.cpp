@@ -4,7 +4,7 @@
 #include <numeric>
 #include <optional>
 
-namespace osbornex {
+namespace OsborneX {
 
 bool Orderbook::CanFullyFill(Side side, Price price, Quantity quantity) const
 {
@@ -431,4 +431,4 @@ void Orderbook::UpdateLevelData(Price price, Quantity quantity, LevelData::Actio
 }
 
 
-} // namespace osbornex
+} // namespace OsborneX

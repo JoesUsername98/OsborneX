@@ -3,7 +3,7 @@
 
 #include "domain_types.hpp"
 
-namespace osbornex {
+namespace OsborneX {
 
 struct LevelInfo 
 {
@@ -13,4 +13,4 @@ struct LevelInfo
 
 using LevelInfos = std::vector<LevelInfo>;
 
-} // namespace osbornex
+} // namespace OsborneX

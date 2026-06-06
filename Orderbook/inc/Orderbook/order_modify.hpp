@@ -2,7 +2,7 @@
 
 #include "order.hpp"
 
-namespace osbornex {
+namespace OsborneX {
 
     class OrderModify
     {
@@ -31,4 +31,4 @@ namespace osbornex {
         Quantity quantity_;
     };
 
-} // namespace osbornex
+} // namespace OsborneX

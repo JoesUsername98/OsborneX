@@ -2,7 +2,7 @@
 
 #include "trade_info.hpp"
 
-namespace osbornex {
+namespace OsborneX {
 
 class Trade
 {
@@ -22,4 +22,4 @@ private:
 
 using Trades = std::vector<Trade>;
 
-} // namespace osbornex
+} // namespace OsborneX

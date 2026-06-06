@@ -4,7 +4,7 @@
 #include <Orderbook/orderbook.hpp>
 
 
-namespace osbornex {
+namespace OsborneX {
 namespace {
 
 TEST(OrderbookTestThreading, IfShutdown_WhenPruneThreadNotWaiting_ThenIsGraceful) {
@@ -17,4 +17,4 @@ TEST(OrderbookTestThreading, IfShutdown_WhenPruneThreadWaiting_ThenIsGraceful) {
 }
 
 } // namespace
-} // namespace osbornex
+} // namespace OsborneX

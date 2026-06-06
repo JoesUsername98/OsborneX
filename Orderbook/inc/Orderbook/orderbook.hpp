@@ -10,7 +10,7 @@
 #include <mutex>
 #include <chrono>
 
-namespace osbornex {
+namespace OsborneX {
 
 class Orderbook 
 {
@@ -93,4 +93,4 @@ private:
     void UpdateLevelData(Price price, Quantity quantity, LevelData::Action action);
 };
 
-} // namespace osbornex
+} // namespace OsborneX

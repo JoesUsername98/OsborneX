@@ -4,11 +4,11 @@
 
 #include "domain_types.hpp"
 
-namespace osbornex {
+namespace OsborneX {
 
-struct Constants
+struct constants
 {
     inline static const Price InvalidPrice = std::numeric_limits<Price>::quiet_NaN();
 };
 
-} // namespace osbornex
+} // namespace OsborneX

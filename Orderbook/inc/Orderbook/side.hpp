@@ -1,6 +1,6 @@
 #pragma once 
 
-namespace osbornex {
+namespace OsborneX {
     
 enum class Side
 {
@@ -8,4 +8,4 @@ enum class Side
     Sell
 };
 
-} // namespace osbornex
+} // namespace OsborneX

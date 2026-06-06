@@ -2,7 +2,7 @@
 
 #include "domain_types.hpp"
 
-namespace osbornex {
+namespace OsborneX {
 
 struct TradeInfo
 {
@@ -11,4 +11,4 @@ struct TradeInfo
     Quantity quantity_;
 };
 
-} // namespace osbornex
+} // namespace OsborneX

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace osbornex {
+namespace OsborneX {
 
 enum class OrderType
 {
@@ -11,4 +11,4 @@ enum class OrderType
     Market
 };
 
-} // namespace osbornex
+} // namespace OsborneX

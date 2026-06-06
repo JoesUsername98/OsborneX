@@ -3,10 +3,10 @@
 #include <cstdint>
 #include <vector>
 
-namespace osbornex {
+namespace OsborneX {
 
 using Price = double;
 using Quantity = std::uint32_t;
 using OrderId = std::uint64_t;
 using OrderIds = std::vector<OrderId>;
-} // namespace osbornex
+} // namespace OsborneX
