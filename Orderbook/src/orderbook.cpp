@@ -314,7 +314,7 @@ Trades Orderbook::MatchOrders()
         if (bestBidPrice < bestAskPrice)
             break;
 
-        while (bidsAtBestPrice.size() && asksAtBestPrice.size()) 
+        while (!bidsAtBestPrice.empty() && !asksAtBestPrice.empty()) 
         {
             auto& bid = bidsAtBestPrice.front();
             auto& ask = asksAtBestPrice.front();
@@ -354,6 +354,18 @@ Trades Orderbook::MatchOrders()
 
             OnOrderMatched(bid->GetPrice(), quantity, bid->IsFilled());
             OnOrderMatched(ask->GetPrice(), quantity, ask->IsFilled());
+
+            if (bidsAtBestPrice.empty())
+            {
+                bids_.erase(bestBidPrice);
+                levelData_.erase(bestBidPrice);
+            }
+    
+            if (asksAtBestPrice.empty())
+            {
+                asks_.erase(bestAskPrice);
+                levelData_.erase(bestAskPrice);
+            }
         }
 
         if (!bids_.empty()) 
