@@ -7,11 +7,11 @@
 namespace osbornex {
 namespace {
 
-TEST(OrderBookTestThreading, IfShutdown_WhenPruneThreadNotWaiting_ThenIsGraceful) {
+TEST(OrderbookTestThreading, IfShutdown_WhenPruneThreadNotWaiting_ThenIsGraceful) {
     Orderbook myOrderbook{ std::chrono::hours{16} };
 }
 
-TEST(OrderBookTestThreading, IfShutdown_WhenPruneThreadWaiting_ThenIsGraceful) {
+TEST(OrderbookTestThreading, IfShutdown_WhenPruneThreadWaiting_ThenIsGraceful) {
     Orderbook myOrderbook{std::chrono::hours{16}};
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
