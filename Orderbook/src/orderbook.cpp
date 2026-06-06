@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <numeric>
-#include <chrono>
 #include <optional>
 
 namespace osbornex {
@@ -116,36 +115,32 @@ Trades Orderbook::AddOrder(OrderPointer order)
     return MatchOrders();
 }
 
-void Orderbook::PruneGoodForDayOrders()
+std::chrono::system_clock::time_point Orderbook::GetNextMarketClose(std::chrono::system_clock::time_point asof) const
 {
     using namespace std::chrono;
-    const auto end = hours(16);
+    const zoned_time zoned{ current_zone(), asof};
+    const auto localNow = zoned.get_local_time();
+    const local_days day{ floor<days>(localNow)};
+    auto close = local_seconds{day} + marketCloseHour_;
 
+    if (localNow >= close)
+        close += days{1};
+
+    return zoned_time{ current_zone(), close}.get_sys_time();
+}
+
+void Orderbook::PruneGoodForDayOrders()
+{
     while (true)
     {
-        const auto now = system_clock::now();
-        const auto now_c = system_clock::to_time_t(now);
-        std::tm now_parts;
-        localtime_s(&now_parts, &now_c);
-
-        if (now_parts.tm_hour >= end.count())
-            now_parts.tm_mday += 1;
-
-        now_parts.tm_hour = end.count();
-        now_parts.tm_min = 0;
-        now_parts.tm_sec = 0;
-
-        auto next = system_clock::from_time_t(mktime(&now_parts));
-        auto till = next - now + milliseconds(100);
-
         {
             std::unique_lock ordersLock{ ordersMutex_ };
 
-            const bool shuttingDown = shutdownConditionVariable_.wait_for(
+            const bool shuttingDown = shutdownConditionVariable_.wait_until(
                 ordersLock,
-                till,
+                GetNextMarketClose(),
                 [this] { return shutdown_.load(std::memory_order_acquire); });
-                
+
             if (shuttingDown)
                 return;
         }

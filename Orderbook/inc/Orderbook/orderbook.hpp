@@ -8,13 +8,16 @@
 #include "orderbook_level_info.hpp"
 #include "trade.hpp"
 #include <mutex>
+#include <chrono>
 
 namespace osbornex {
 
 class Orderbook 
 {
 public:
-    Orderbook() : ordersPruneThread_{ [this] { PruneGoodForDayOrders(); } } 
+    Orderbook(const std::chrono::hours closeHour) 
+        :ordersPruneThread_{ [this] { PruneGoodForDayOrders(); } } 
+        , marketCloseHour_{ closeHour }
     {}
     ~Orderbook()
     {
@@ -32,6 +35,14 @@ public:
     Trades ModifyOrder(OrderModify order);
     std::size_t Size() const;
     OrderbookLevelInfos GetOrderInfos();
+
+    /// @brief Returns the next market close after @p asof.
+    /// @details Computes the next local-time occurrence of @c marketCloseHour_.
+    ///          Weekends and holidays are not excluded; every calendar day is treated as a business day.
+    /// @param asof The reference time. Defaults to the current time.
+    /// @return The next market close as a @c std::chrono::system_clock time point.
+    /// @note Close time is interpreted in the system's local timezone.
+    std::chrono::system_clock::time_point GetNextMarketClose(std::chrono::system_clock::time_point asof = std::chrono::system_clock::now()) const;
 
 private:
     struct OrderEntry 
@@ -63,6 +74,7 @@ private:
     AskLevels asks_;
     Orders orders_;
 
+    const std::chrono::hours marketCloseHour_;
     mutable std::mutex ordersMutex_;
     std::thread ordersPruneThread_;
     std::condition_variable shutdownConditionVariable_;
