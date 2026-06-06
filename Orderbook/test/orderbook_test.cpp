@@ -8,7 +8,7 @@ namespace osbornex {
 namespace {
 
 TEST(OrderBookTest, EmptyByDefault) {
-    Orderbook myOrderbook;
+    Orderbook myOrderbook{std::chrono::hours{16}};
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     EXPECT_EQ( myOrderbook.Size(),  Quantity{ 0 } );
 }
