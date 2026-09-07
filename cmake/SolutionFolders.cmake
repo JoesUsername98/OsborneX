@@ -1,6 +1,7 @@
 function(osbornex_set_solution_folders)
     set(_vs_presets_folder "Visual Studio Presets")
     set(_orderbook_folder "Orderbook")
+    set(_simulation_folder "Simulation")
     set(_dependencies_folder "Dependencies")
 
     foreach(target IN ITEMS ALL_BUILD ZERO_CHECK INSTALL RUN_TESTS)
@@ -12,6 +13,12 @@ function(osbornex_set_solution_folders)
     foreach(target IN ITEMS Orderbook OrderbookTest OrderbookBench run-tests run-benchmarks)
         if(TARGET ${target})
             set_target_properties(${target} PROPERTIES FOLDER "${_orderbook_folder}")
+        endif()
+    endforeach()
+
+    foreach(target IN ITEMS Simulation SimulationTest SimulationMain)
+        if(TARGET ${target})
+            set_target_properties(${target} PROPERTIES FOLDER "${_simulation_folder}")
         endif()
     endforeach()
 

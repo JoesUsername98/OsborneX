@@ -19,4 +19,16 @@ FetchContent_Declare(
     GIT_TAG v1.9.1
 )
 
-FetchContent_MakeAvailable(googletest googlebenchmark)
+FetchContent_Declare(
+    readerwriterqueue
+    GIT_REPOSITORY https://github.com/cameron314/readerwriterqueue.git
+    GIT_TAG v1.0.6
+)
+
+FetchContent_Declare(
+    concurrentqueue
+    GIT_REPOSITORY https://github.com/cameron314/concurrentqueue.git
+    GIT_TAG v1.0.4
+)
+
+FetchContent_MakeAvailable(googletest googlebenchmark readerwriterqueue concurrentqueue)

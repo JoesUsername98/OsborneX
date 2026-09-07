@@ -1,19 +1,18 @@
 #include <gtest/gtest.h>
-#include <chrono>
 
 #include <Orderbook/orderbook.hpp>
-
 
 namespace OsborneX {
 namespace {
 
-TEST(OrderbookTestThreading, IfShutdown_WhenPruneThreadNotWaiting_ThenIsGraceful) {
-    Orderbook myOrderbook{ std::chrono::hours{16} };
+TEST(OrderbookTestLifecycle, IfConstructed_WhenDestroyed_ThenNoHang) {
+    Orderbook myOrderbook{};
 }
 
-TEST(OrderbookTestThreading, IfShutdown_WhenPruneThreadWaiting_ThenIsGraceful) {
-    Orderbook myOrderbook{std::chrono::hours{16}};
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+TEST(OrderbookTestLifecycle, IfOrdersAdded_WhenDestroyed_ThenNoHang) {
+    Orderbook myOrderbook{};
+    myOrderbook.AddOrder(std::make_shared<Order>(
+        OrderType::GoodTillCancel, 1, Side::Buy, 100.0, 10));
 }
 
 } // namespace
