@@ -2,39 +2,33 @@
 
 #include <map>
 #include <unordered_map>
+#include <chrono>
 
 #include "order.hpp"
 #include "order_modify.hpp"
 #include "orderbook_level_info.hpp"
 #include "trade.hpp"
-#include <mutex>
-#include <chrono>
 
 namespace OsborneX {
 
-class Orderbook 
+class Orderbook
 {
 public:
-    Orderbook(const std::chrono::hours closeHour) 
-        :ordersPruneThread_{ [this] { PruneGoodForDayOrders(); } } 
-        , marketCloseHour_{ closeHour }
-    {}
-    ~Orderbook()
+    explicit Orderbook(std::chrono::hours closeHour = std::chrono::hours{16})
+        : marketCloseHour_{ closeHour }
     {
-        shutdown_.store(true, std::memory_order_release);
-        shutdownConditionVariable_.notify_one();
-        ordersPruneThread_.join();
     }
+
     Orderbook(const Orderbook&) = delete;
-    void operator=(const Orderbook&) = delete;
-    Orderbook(Orderbook&&) = delete;
-    void operator=(Orderbook&&) = delete;
+    Orderbook& operator=(const Orderbook&) = delete;
+    Orderbook(Orderbook&&) = default;
+    Orderbook& operator=(Orderbook&&) = default;
 
     Trades AddOrder(OrderPointer order);
     void CancelOrder(OrderId orderId);
     Trades ModifyOrder(OrderModify order);
     std::size_t Size() const;
-    OrderbookLevelInfos GetOrderInfos();
+    OrderbookLevelInfos GetOrderInfos() const;
 
     /// @brief Returns the next market close after @p asof.
     /// @details Computes the next local-time occurrence of @c marketCloseHour_.
@@ -42,10 +36,11 @@ public:
     /// @param asof The reference time. Defaults to the current time.
     /// @return The next market close as a @c std::chrono::system_clock time point.
     /// @note Close time is interpreted in the system's local timezone.
-    std::chrono::system_clock::time_point GetNextMarketClose(std::chrono::system_clock::time_point asof = std::chrono::system_clock::now()) const;
+    std::chrono::system_clock::time_point GetNextMarketClose(
+        std::chrono::system_clock::time_point asof = std::chrono::system_clock::now()) const;
 
 private:
-    struct OrderEntry 
+    struct OrderEntry
     {
         OrderPointer order_{};
         OrderPointers::iterator location_;
@@ -53,8 +48,8 @@ private:
 
     struct LevelData
     {
-        Quantity quantity_{ };
-        Quantity count_{ };
+        Quantity quantity_{};
+        Quantity count_{};
 
         enum class Action
         {
@@ -74,18 +69,13 @@ private:
     AskLevels asks_;
     Orders orders_;
 
-    const std::chrono::hours marketCloseHour_;
-    mutable std::mutex ordersMutex_;
-    std::thread ordersPruneThread_;
-    std::condition_variable shutdownConditionVariable_;
-    std::atomic<bool> shutdown_{ false };
+    std::chrono::hours marketCloseHour_;
 
     bool CanMatch(Side side, Price price) const;
     Trades MatchOrders();
     void CancelOrders(OrderIds orderIds);
     void CancelOrderInternal(OrderId orderId);
     bool CanFullyFill(Side side, Price price, Quantity quantity) const;
-    void PruneGoodForDayOrders();
 
     void OnOrderCancelled(OrderPointer order);
     void OnOrderAdded(OrderPointer order);

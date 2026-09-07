@@ -17,5 +17,6 @@ include(SolutionFolders)
 enable_testing()
 
 add_subdirectory(Orderbook)
+add_subdirectory(Simulation)
 
 osbornex_set_solution_folders()

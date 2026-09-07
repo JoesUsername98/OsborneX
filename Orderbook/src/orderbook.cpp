@@ -51,139 +51,96 @@ bool Orderbook::CanFullyFill(Side side, Price price, Quantity quantity) const
     return false;
 }
 
-Trades Orderbook::AddOrder(OrderPointer order) 
+Trades Orderbook::AddOrder(OrderPointer order)
 {
+    if (orders_.contains(order->GetOrderId()))
+        return {};
+
+    if (order->GetOrderType() == OrderType::FillAndKill &&
+        !CanMatch(order->GetSide(), order->GetPrice()))
+        return {};
+
+    if (order->GetOrderType() == OrderType::Market)
     {
-        std::scoped_lock ordersLock{ ordersMutex_ };
-
-        if (orders_.contains(order->GetOrderId()))
+        if (order->GetSide() == Side::Buy && !asks_.empty())
+        {
+            const auto& [worstAsk, _] = *asks_.rbegin();
+            order->ToGoodTillCancel(worstAsk);
+        }
+        else if (order->GetSide() == Side::Sell && !bids_.empty())
+        {
+            const auto& [worstBid, _] = *bids_.rbegin();
+            order->ToGoodTillCancel(worstBid);
+        }
+        else
             return {};
-
-        if (order->GetOrderType() == OrderType::FillAndKill &&
-            !CanMatch(order->GetSide(), order->GetPrice()))
-            return {};
-
-        if (order->GetOrderType() == OrderType::Market)
-        {
-            if (order->GetSide() == Side::Buy && !asks_.empty())
-            {
-                const auto& [worstAsk, _] = *asks_.rbegin();
-                order->ToGoodTillCancel(worstAsk);
-            }
-            else if (order->GetSide() == Side::Sell && !bids_.empty())
-            {
-                const auto& [worstBid, _] = *bids_.rbegin();
-                order->ToGoodTillCancel(worstBid);
-            }
-            else
-                return { };
-        }
-
-        if (order->GetOrderType() == OrderType::FillOrKill && !CanFullyFill(order->GetSide(), order->GetPrice(), order->GetInitialQuantity()))
-            return { };
-
-        OrderPointers::iterator iterator;
-
-        switch (order->GetSide()) 
-        {
-        case Side::Buy: 
-        {
-            auto& bidsAtPrice = bids_[order->GetPrice()];
-            bidsAtPrice.push_back(order);
-            iterator = std::prev(bidsAtPrice.end());
-            break;
-        }
-        case Side::Sell: 
-        {
-            auto& asksAtPrice = asks_[order->GetPrice()];
-            asksAtPrice.push_back(order);
-            iterator = std::prev(asksAtPrice.end());
-            break;
-        }
-        default:
-            std::unreachable();
-        }
-
-        orders_.emplace(
-            order->GetOrderId(),
-            OrderEntry{
-                .order_ = order,
-                .location_ = iterator,
-            });
-        
-        OnOrderAdded(order);
     }
+
+    if (order->GetOrderType() == OrderType::FillOrKill &&
+        !CanFullyFill(order->GetSide(), order->GetPrice(), order->GetInitialQuantity()))
+        return {};
+
+    OrderPointers::iterator iterator;
+
+    switch (order->GetSide())
+    {
+    case Side::Buy:
+    {
+        auto& bidsAtPrice = bids_[order->GetPrice()];
+        bidsAtPrice.push_back(order);
+        iterator = std::prev(bidsAtPrice.end());
+        break;
+    }
+    case Side::Sell:
+    {
+        auto& asksAtPrice = asks_[order->GetPrice()];
+        asksAtPrice.push_back(order);
+        iterator = std::prev(asksAtPrice.end());
+        break;
+    }
+    default:
+        std::unreachable();
+    }
+
+    orders_.emplace(
+        order->GetOrderId(),
+        OrderEntry{
+            .order_ = order,
+            .location_ = iterator,
+        });
+
+    OnOrderAdded(order);
 
     return MatchOrders();
 }
 
-std::chrono::system_clock::time_point Orderbook::GetNextMarketClose(std::chrono::system_clock::time_point asof) const
+std::chrono::system_clock::time_point Orderbook::GetNextMarketClose(
+    std::chrono::system_clock::time_point asof) const
 {
     using namespace std::chrono;
-    const zoned_time zoned{ current_zone(), asof};
+    const zoned_time zoned{ current_zone(), asof };
     const auto localNow = zoned.get_local_time();
-    const local_days day{ floor<days>(localNow)};
-    auto close = local_seconds{day} + marketCloseHour_;
+    const local_days day{ floor<days>(localNow) };
+    auto close = local_seconds{ day } + marketCloseHour_;
 
     if (localNow >= close)
-        close += days{1};
+        close += days{ 1 };
 
-    return zoned_time{ current_zone(), close}.get_sys_time();
-}
-
-void Orderbook::PruneGoodForDayOrders()
-{
-    while (true)
-    {
-        {
-            std::unique_lock ordersLock{ ordersMutex_ };
-
-            const bool shuttingDown = shutdownConditionVariable_.wait_until(
-                ordersLock,
-                GetNextMarketClose(),
-                [this] { return shutdown_.load(std::memory_order_acquire); });
-
-            if (shuttingDown)
-                return;
-        }
-
-        OrderIds orderIds;
-        orderIds.reserve(orders_.size());
-
-        {
-            std::scoped_lock ordersLock{ ordersMutex_ };
-
-            for (const auto& [_, entry] : orders_)
-            {
-                const auto& order = entry.order_;
-
-                if (order->GetOrderType() != OrderType::GoodForDay)
-                    continue;
-
-                orderIds.push_back(order->GetOrderId());
-            }
-        }
-
-        CancelOrders(orderIds);
-    }
+    return zoned_time{ current_zone(), close }.get_sys_time();
 }
 
 void Orderbook::CancelOrders(OrderIds orderIds)
 {
-    std::scoped_lock ordersLock{ ordersMutex_ };
-
     for (const auto& orderId : orderIds)
         CancelOrderInternal(orderId);
 }
 
-void Orderbook::CancelOrder(OrderId orderId) 
+void Orderbook::CancelOrder(OrderId orderId)
 {
-    std::scoped_lock ordersLock{ ordersMutex_ };
-
     CancelOrderInternal(orderId);
 }
 
-void Orderbook::CancelOrderInternal(OrderId orderId) 
+void Orderbook::CancelOrderInternal(OrderId orderId)
 {
     if (!orders_.contains(orderId))
         return;
@@ -191,9 +148,9 @@ void Orderbook::CancelOrderInternal(OrderId orderId)
     const auto [order, iterator] = orders_.at(orderId);
     orders_.erase(orderId);
 
-    switch (order->GetSide()) 
+    switch (order->GetSide())
     {
-    case Side::Buy: 
+    case Side::Buy:
     {
         auto price = order->GetPrice();
         auto& bidsAtLevel = bids_.at(price);
@@ -202,7 +159,7 @@ void Orderbook::CancelOrderInternal(OrderId orderId)
             bids_.erase(price);
         break;
     }
-    case Side::Sell: 
+    case Side::Sell:
     {
         auto price = order->GetPrice();
         auto& asksAtPrice = asks_.at(price);
@@ -218,54 +175,47 @@ void Orderbook::CancelOrderInternal(OrderId orderId)
     OnOrderCancelled(order);
 }
 
-Trades Orderbook::ModifyOrder(OrderModify order) 
+Trades Orderbook::ModifyOrder(OrderModify order)
 {
-    OrderType orderType;
+    if (!orders_.contains(order.GetOrderId()))
+        return {};
 
-    {
-        std::scoped_lock ordersLock{ ordersMutex_ };
-
-        if (!orders_.contains(order.GetOrderId()))
-            return { };
-
-        const auto& [existingOrder, _] = orders_.at(order.GetOrderId());
-        orderType = existingOrder->GetOrderType();
-    }
+    const auto& [existingOrder, _] = orders_.at(order.GetOrderId());
+    const OrderType orderType = existingOrder->GetOrderType();
 
     CancelOrder(order.GetOrderId());
     return AddOrder(order.ToOrderPointer(orderType));
 }
 
-std::size_t Orderbook::Size() const 
+std::size_t Orderbook::Size() const
 {
-    std::scoped_lock ordersLock{ ordersMutex_ };
     return orders_.size();
 }
 
-OrderbookLevelInfos Orderbook::GetOrderInfos() 
+OrderbookLevelInfos Orderbook::GetOrderInfos() const
 {
-    LevelInfos bidInfos, askInfos;
+    LevelInfos bidInfos;
+    LevelInfos askInfos;
     bidInfos.reserve(orders_.size());
     askInfos.reserve(orders_.size());
 
-    auto CreateLevelInfos = [](Price price, const OrderPointers& orders) 
-    {
+    auto CreateLevelInfos = [](Price price, const OrderPointers& orders) {
         return LevelInfo{
             .price_ = price,
             .quantity_ = std::accumulate(
                 orders.begin(),
                 orders.end(),
-                Quantity{0},
+                Quantity{ 0 },
                 [](Quantity runningSum, const OrderPointer& order) {
                     return runningSum + order->GetRemainingQuantity();
                 }),
         };
     };
 
-    for (const auto [price, bidsAtPrice] : bids_)
+    for (const auto& [price, bidsAtPrice] : bids_)
         bidInfos.push_back(CreateLevelInfos(price, bidsAtPrice));
 
-    for (const auto [price, asksAtPrice] : asks_)
+    for (const auto& [price, asksAtPrice] : asks_)
         askInfos.push_back(CreateLevelInfos(price, asksAtPrice));
 
     return OrderbookLevelInfos{
@@ -274,11 +224,11 @@ OrderbookLevelInfos Orderbook::GetOrderInfos()
     };
 }
 
-bool Orderbook::CanMatch(Side side, Price price) const 
+bool Orderbook::CanMatch(Side side, Price price) const
 {
-    switch (side) 
+    switch (side)
     {
-    case Side::Buy: 
+    case Side::Buy:
     {
         if (asks_.empty())
             return false;
@@ -286,7 +236,7 @@ bool Orderbook::CanMatch(Side side, Price price) const
         const auto& [bestAsk, _] = *asks_.begin();
         return price >= bestAsk;
     }
-    case Side::Sell: 
+    case Side::Sell:
     {
         if (bids_.empty())
             return false;
@@ -299,13 +249,12 @@ bool Orderbook::CanMatch(Side side, Price price) const
     }
 }
 
-Trades Orderbook::MatchOrders() 
+Trades Orderbook::MatchOrders()
 {
-    std::scoped_lock ordersLock{ ordersMutex_ };
     Trades trades;
     trades.reserve(orders_.size());
 
-    while (true) 
+    while (true)
     {
         if (bids_.empty() || asks_.empty())
             break;
@@ -319,7 +268,7 @@ Trades Orderbook::MatchOrders()
         auto& bidsAtBestPrice = bids_.at(bestBidPrice);
         auto& asksAtBestPrice = asks_.at(bestAskPrice);
 
-        while (!bidsAtBestPrice.empty() && !asksAtBestPrice.empty()) 
+        while (!bidsAtBestPrice.empty() && !asksAtBestPrice.empty())
         {
             const OrderPointer bid = bidsAtBestPrice.front();
             const OrderPointer ask = asksAtBestPrice.front();
@@ -336,13 +285,13 @@ Trades Orderbook::MatchOrders()
             const bool bidFilled = bid->IsFilled();
             const bool askFilled = ask->IsFilled();
 
-            if (bidFilled) 
+            if (bidFilled)
             {
                 bidsAtBestPrice.pop_front();
                 orders_.erase(bidId);
             }
 
-            if (askFilled) 
+            if (askFilled)
             {
                 asksAtBestPrice.pop_front();
                 orders_.erase(askId);
@@ -370,14 +319,14 @@ Trades Orderbook::MatchOrders()
             bids_.erase(bestBidPrice);
             levelData_.erase(bestBidPrice);
         }
-    
+
         if (asksAtBestPrice.empty())
         {
             asks_.erase(bestAskPrice);
             levelData_.erase(bestAskPrice);
         }
 
-        if (!bids_.empty()) 
+        if (!bids_.empty())
         {
             auto& [_, dirtyBids] = *bids_.begin();
             auto& bidOrder = dirtyBids.front();
@@ -385,7 +334,7 @@ Trades Orderbook::MatchOrders()
                 CancelOrderInternal(bidOrder->GetOrderId());
         }
 
-        if (!asks_.empty()) 
+        if (!asks_.empty())
         {
             auto& [_, dirtAsks] = *asks_.begin();
             auto& askOrder = dirtAsks.front();
@@ -429,6 +378,5 @@ void Orderbook::UpdateLevelData(Price price, Quantity quantity, LevelData::Actio
     if (data.count_ == 0)
         levelData_.erase(price);
 }
-
 
 } // namespace OsborneX
