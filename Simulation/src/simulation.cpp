@@ -5,21 +5,36 @@
 
 namespace OsborneX::Simulation {
 
-Simulation::Simulation(std::size_t shard_count)
+namespace {
+
+SimulationOptions MakeOptions(std::size_t shard_count)
+{
+    return SimulationOptions{ .shard_count = shard_count };
+}
+
+} // namespace
+
+Simulation::Simulation(SimulationOptions options)
     : router_(shard_ptrs_)
     , ingress_(router_)
 {
-    if (shard_count == 0)
+    if (options.shard_count == 0)
         throw std::invalid_argument("shard_count must be greater than zero");
 
-    shards_.reserve(shard_count);
-    shard_ptrs_.reserve(shard_count);
+    shards_.reserve(options.shard_count);
+    shard_ptrs_.reserve(options.shard_count);
 
-    for (std::size_t i = 0; i < shard_count; ++i)
+    for (std::size_t i = 0; i < options.shard_count; ++i)
     {
-        shards_.push_back(std::make_unique<Shard>(publisher_));
+        shards_.push_back(std::make_unique<Shard>(options.shard_inbound_capacity, options.shard_outbound_capacity));
         shard_ptrs_.push_back(shards_.back().get());
+        publisher_.add_producer(shards_.back()->market_data_out());
     }
+}
+
+Simulation::Simulation(std::size_t shard_count)
+    : Simulation(MakeOptions(shard_count))
+{
 }
 
 void Simulation::add_subscriber(Subscriber& subscriber)
@@ -33,6 +48,7 @@ void Simulation::start()
         return;
 
     running_ = true;
+    publisher_.freeze();
     for (auto& shard : shards_)
         shard->start();
 }

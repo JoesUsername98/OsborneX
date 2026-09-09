@@ -1,15 +1,14 @@
 #include <gtest/gtest.h>
 
-#include <Simulation/publisher.hpp>
-#include <Simulation/shard.hpp>
-#include <Simulation/subscriber.hpp>
-#include <Simulation/types.hpp>
-
-#include <chrono>
-#include <thread>
+#include <Queue/ring_buffer.hpp>
+#include <Sharding/shard.hpp>
+#include <Messages/types.hpp>
+#include <TestSupport/wait_for.hpp>
 
 namespace OsborneX::Simulation {
 namespace {
+
+using OsborneX::TestSupport::wait_for;
 
 OrderMessage MakeAdd(
     SymbolId symbol,
@@ -46,42 +45,31 @@ OrderMessage MakeCancel(SymbolId symbol, OrderId orderId, IngressSequence sequen
 
 TEST(ShardTest, RestingAddPublishesTopOfBook)
 {
-    MarketDataPublisher publisher;
-    Subscriber subscriber;
-    publisher.add_subscriber(subscriber);
-    subscriber.start();
-
-    Shard shard{ publisher };
+    Shard shard;
+    auto& market_data = shard.market_data_out().add_consumer(Queue::ConsumerPolicy::Lossy);
     shard.start();
     shard.enqueue(MakeAdd(7, 1, Side::Buy, 100.0, 10, 1));
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    ASSERT_TRUE(wait_for([&] { return shard.book_size(7) == 1; }));
     shard.stop();
-    subscriber.stop();
 
-    const auto events = subscriber.snapshot_events();
-    ASSERT_FALSE(events.empty());
-    EXPECT_EQ(events.back().symbol, 7u);
-    EXPECT_EQ(events.back().bid_quantity, 10u);
-    EXPECT_DOUBLE_EQ(events.back().bid_price, 100.0);
+    TopOfBookUpdate update{};
+    ASSERT_EQ(market_data.try_read(update), Queue::ReadResult::Ok);
+    EXPECT_EQ(update.symbol, 7u);
+    EXPECT_EQ(update.bid_quantity, 10u);
+    EXPECT_DOUBLE_EQ(update.bid_price, 100.0);
     EXPECT_EQ(shard.book_size(7), 1u);
 }
 
 TEST(ShardTest, CrossingAddClearsMatchedLiquidityFromTop)
 {
-    MarketDataPublisher publisher;
-    Subscriber subscriber;
-    publisher.add_subscriber(subscriber);
-    subscriber.start();
-
-    Shard shard{ publisher };
+    Shard shard;
     shard.start();
     shard.enqueue(MakeAdd(1, 1, Side::Buy, 100.0, 10, 1));
     shard.enqueue(MakeAdd(1, 2, Side::Sell, 100.0, 10, 2));
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    ASSERT_TRUE(wait_for([&] { return shard.book_size(1) == 0; }));
     shard.stop();
-    subscriber.stop();
 
     EXPECT_EQ(shard.book_size(1), 0u);
     const auto tob = shard.top_of_book(1);
@@ -91,24 +79,24 @@ TEST(ShardTest, CrossingAddClearsMatchedLiquidityFromTop)
 
 TEST(ShardTest, CancelRemovesRestingOrder)
 {
-    MarketDataPublisher publisher;
-    Subscriber subscriber;
-    publisher.add_subscriber(subscriber);
-    subscriber.start();
-
-    Shard shard{ publisher };
+    Shard shard;
+    auto& market_data = shard.market_data_out().add_consumer(Queue::ConsumerPolicy::Lossy);
     shard.start();
     shard.enqueue(MakeAdd(3, 9, Side::Sell, 55.0, 4, 1));
     shard.enqueue(MakeCancel(3, 9, 2));
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    ASSERT_TRUE(wait_for([&] { return shard.book_size(3) == 0; }));
     shard.stop();
-    subscriber.stop();
 
     EXPECT_EQ(shard.book_size(3), 0u);
-    const auto events = subscriber.snapshot_events();
-    ASSERT_GE(events.size(), 2u);
-    EXPECT_EQ(events.back().ask_quantity, 0u);
+
+    TopOfBookUpdate update{};
+    int delivered = 0;
+    while (market_data.try_read(update) == Queue::ReadResult::Ok)
+        ++delivered;
+
+    ASSERT_GE(delivered, 2);
+    EXPECT_EQ(update.ask_quantity, 0u);
 }
 
 } // namespace
