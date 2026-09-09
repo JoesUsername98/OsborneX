@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <Simulation/router.hpp>
-#include <Simulation/types.hpp>
+#include <Sharding/router.hpp>
+#include <Messages/types.hpp>
 
 #include <set>
 

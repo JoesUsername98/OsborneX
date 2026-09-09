@@ -33,7 +33,7 @@ OrderMessage MakeAdd(
 int main()
 {
     Simulation simulation{ 4 };
-    Subscriber subscriber{ 256 };
+    Subscriber subscriber;
     simulation.add_subscriber(subscriber);
 
     subscriber.start();

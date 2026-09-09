@@ -4,19 +4,27 @@
 #include <memory>
 #include <vector>
 
-#include <Simulation/ingress.hpp>
-#include <Simulation/publisher.hpp>
-#include <Simulation/router.hpp>
-#include <Simulation/shard.hpp>
-#include <Simulation/subscriber.hpp>
-#include <Simulation/types.hpp>
+#include <Ingress/ingress.hpp>
+#include <PubSub/publisher.hpp>
+#include <PubSub/subscriber.hpp>
+#include <Sharding/router.hpp>
+#include <Sharding/shard.hpp>
+#include <Messages/types.hpp>
 
 namespace OsborneX::Simulation {
+
+struct SimulationOptions
+{
+    std::size_t shard_count{ 4 };
+    std::size_t shard_inbound_capacity{ 4096 };
+    std::size_t shard_outbound_capacity{ 1024 };
+};
 
 class Simulation
 {
 public:
-    explicit Simulation(std::size_t shard_count = 4);
+    explicit Simulation(SimulationOptions options = {});
+    explicit Simulation(std::size_t shard_count);
 
     Simulation(const Simulation&) = delete;
     Simulation& operator=(const Simulation&) = delete;

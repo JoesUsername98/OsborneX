@@ -1,14 +1,15 @@
 #include <gtest/gtest.h>
 
 #include <Simulation/simulation.hpp>
-#include <Simulation/types.hpp>
+#include <Messages/types.hpp>
+#include <TestSupport/wait_for.hpp>
 
-#include <chrono>
-#include <thread>
 #include <unordered_map>
 
 namespace OsborneX::Simulation {
 namespace {
+
+using OsborneX::TestSupport::wait_for;
 
 OrderMessage MakeAdd(
     SymbolId symbol,
@@ -42,7 +43,7 @@ TEST(EndToEndTest, IngressToSubscriberDeliversTopOfBookUpdates)
     simulation.submit(MakeAdd(10, 2, Side::Sell, 105.0, 3));
     simulation.submit(MakeAdd(20, 3, Side::Buy, 200.0, 7));
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_TRUE(wait_for([&] { return subscriber.snapshot_events().size() >= 3; }));
     simulation.stop();
     subscriber.stop();
 
@@ -59,6 +60,7 @@ TEST(EndToEndTest, IngressToSubscriberDeliversTopOfBookUpdates)
 
     EXPECT_TRUE(last_sequence.contains(10));
     EXPECT_TRUE(last_sequence.contains(20));
+    EXPECT_EQ(subscriber.dropped_count(), 0u);
 }
 
 TEST(EndToEndTest, IngressAssignsMonotonicSequences)

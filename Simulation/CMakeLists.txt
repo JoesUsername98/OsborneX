@@ -7,12 +7,12 @@ file(GLOB_RECURSE SIMULATION_TEST_SOURCES CONFIGURE_DEPENDS
 
 add_library(Simulation STATIC ${SIMULATION_SOURCES} ${SIMULATION_HEADERS})
 target_include_directories(Simulation PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/inc")
-target_link_libraries(Simulation PUBLIC Orderbook readerwriterqueue concurrentqueue)
+target_link_libraries(Simulation PUBLIC Orderbook Messages Ingress Sharding PubSub)
 target_compile_features(Simulation PUBLIC cxx_std_23)
 osbornex_set_warnings(Simulation)
 
 add_executable(SimulationTest ${SIMULATION_TEST_SOURCES})
-target_link_libraries(SimulationTest PRIVATE Simulation GTest::gtest_main)
+target_link_libraries(SimulationTest PRIVATE Simulation TestSupport GTest::gtest_main)
 osbornex_set_warnings(SimulationTest)
 include(GoogleTest)
 gtest_discover_tests(SimulationTest)

@@ -17,6 +17,12 @@ include(SolutionFolders)
 enable_testing()
 
 add_subdirectory(Orderbook)
+add_subdirectory(Messages)
+add_subdirectory(TestSupport)
+add_subdirectory(Queue)
+add_subdirectory(Ingress)
+add_subdirectory(PubSub)
+add_subdirectory(Sharding)
 add_subdirectory(Simulation)
 
 osbornex_set_solution_folders()
