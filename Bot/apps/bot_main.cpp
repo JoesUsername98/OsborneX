@@ -1,15 +1,33 @@
 #include <Bot/random_strategy.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <Net/market_data_multicast.hpp>
 #include <Net/order_entry_client.hpp>
 
 using namespace OsborneX;
+
+namespace {
+
+/// Parses a comma-separated list of symbol ids, e.g. "1,2" -> {1, 2}.
+std::vector<Simulation::SymbolId> ParseSymbols(const std::string& text)
+{
+    std::vector<Simulation::SymbolId> symbols;
+    std::stringstream stream(text);
+    std::string token;
+    while (std::getline(stream, token, ','))
+        symbols.push_back(static_cast<Simulation::SymbolId>(std::stoul(token)));
+    return symbols;
+}
+
+} // namespace
 
 int main(int argc, char** argv)
 {
@@ -17,7 +35,7 @@ int main(int argc, char** argv)
     std::uint16_t order_entry_port = 9001;
     std::string market_data_group = "239.1.1.1";
     std::uint16_t market_data_port = 9002;
-    Simulation::SymbolId symbol = 1;
+    std::vector<Simulation::SymbolId> symbols{ 1 };
     Simulation::SourceId source = 1;
 
     if (argc > 1)
@@ -29,7 +47,7 @@ int main(int argc, char** argv)
     if (argc > 4)
         market_data_port = static_cast<std::uint16_t>(std::stoi(argv[4]));
     if (argc > 5)
-        symbol = static_cast<Simulation::SymbolId>(std::stoul(argv[5]));
+        symbols = ParseSymbols(argv[5]);
     if (argc > 6)
         source = static_cast<Simulation::SourceId>(std::stoul(argv[6]));
 
@@ -58,7 +76,7 @@ int main(int argc, char** argv)
     }
 
     Bot::RandomStrategyOptions options{};
-    options.symbol = symbol;
+    options.symbols = symbols;
     options.source = source;
 
     Bot::RandomStrategy strategy(order_client, options);
@@ -66,7 +84,7 @@ int main(int argc, char** argv)
     Net::MarketDataListener market_data(
         market_data_group, market_data_port,
         [&](const Simulation::TopOfBookUpdate& update) {
-            if (update.symbol == symbol)
+            if (std::find(symbols.begin(), symbols.end(), update.symbol) != symbols.end())
                 strategy.on_top_of_book(update);
         },
         [](const Simulation::TradeExecution&) {});
@@ -74,8 +92,10 @@ int main(int argc, char** argv)
 
     strategy.start();
 
-    std::cout << "OsborneX bot trading symbol " << symbol << " against " << server_host << ':' << order_entry_port
-              << ". Press Enter to stop...\n";
+    std::cout << "OsborneX bot trading symbols ";
+    for (std::size_t i = 0; i < symbols.size(); ++i)
+        std::cout << (i == 0 ? "" : ",") << symbols[i];
+    std::cout << " against " << server_host << ':' << order_entry_port << ". Press Enter to stop...\n";
     std::cin.get();
 
     strategy.stop();

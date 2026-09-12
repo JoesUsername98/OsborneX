@@ -146,13 +146,68 @@ TEST(RandomStrategyTest, OrdersUseConfiguredSymbolAndGoodTillCancelAdds)
 {
     auto client = MakeUnconnectedClient();
     Bot::RandomStrategyOptions options{};
-    options.symbol = 42;
+    options.symbols = { 42 };
     Bot::RandomStrategy strategy(client, options);
 
     const auto order = strategy.make_random_order();
     EXPECT_EQ(order.symbol, 42u);
     EXPECT_EQ(order.type, Simulation::OrderType::GoodTillCancel);
     EXPECT_EQ(order.action, Simulation::OrderAction::Add);
+}
+
+TEST(RandomStrategyTest, OrdersDrawSymbolFromTheConfiguredSet)
+{
+    auto client = MakeUnconnectedClient();
+    Bot::RandomStrategyOptions options{};
+    options.symbols = { 10, 20 };
+    Bot::RandomStrategy strategy(client, options);
+
+    bool saw_ten = false;
+    bool saw_twenty = false;
+    for (int i = 0; i < 200 && !(saw_ten && saw_twenty); ++i)
+    {
+        const auto order = strategy.make_random_order();
+        ASSERT_TRUE(order.symbol == 10u || order.symbol == 20u);
+        saw_ten |= (order.symbol == 10u);
+        saw_twenty |= (order.symbol == 20u);
+    }
+
+    EXPECT_TRUE(saw_ten);
+    EXPECT_TRUE(saw_twenty);
+}
+
+TEST(RandomStrategyTest, PriceCentersOnThePerSymbolLastKnownTop)
+{
+    auto client = MakeUnconnectedClient();
+    Bot::RandomStrategyOptions options{};
+    options.symbols = { 1, 2 };
+    options.price_perturbation_bps = 0.0;
+    options.default_price = 999.0; // should never surface once both symbols have a top
+    Bot::RandomStrategy strategy(client, options);
+
+    strategy.on_top_of_book(Simulation::TopOfBookUpdate{
+        .symbol = 1,
+        .bid_price = 100.0,
+        .bid_quantity = 10,
+        .ask_price = 102.0,
+        .ask_quantity = 10,
+    });
+    strategy.on_top_of_book(Simulation::TopOfBookUpdate{
+        .symbol = 2,
+        .bid_price = 200.0,
+        .bid_quantity = 10,
+        .ask_price = 204.0,
+        .ask_quantity = 10,
+    });
+
+    for (int i = 0; i < 50; ++i)
+    {
+        const auto order = strategy.make_random_order();
+        if (order.symbol == 1)
+            EXPECT_DOUBLE_EQ(order.price, 101.0);
+        else
+            EXPECT_DOUBLE_EQ(order.price, 202.0);
+    }
 }
 
 // A real loopback integration test: start() actually opens a timer thread that

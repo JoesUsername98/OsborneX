@@ -14,7 +14,7 @@ RandomStrategy::RandomStrategy(Net::OrderEntryClient& order_client, RandomStrate
 void RandomStrategy::on_top_of_book(const Simulation::TopOfBookUpdate& update)
 {
     std::lock_guard lock{ top_mutex_ };
-    last_known_top_ = update;
+    last_known_tops_[update.symbol] = update;
 }
 
 void RandomStrategy::start()
@@ -34,12 +34,16 @@ void RandomStrategy::stop()
 
 Simulation::OrderMessage RandomStrategy::make_random_order()
 {
+    std::uniform_int_distribution<std::size_t> symbol_dist(0, options_.symbols.size() - 1);
+    const Simulation::SymbolId symbol = options_.symbols[symbol_dist(rng_)];
+
     Simulation::Price center = options_.default_price;
     {
         std::lock_guard lock{ top_mutex_ };
-        if (last_known_top_)
+        const auto it = last_known_tops_.find(symbol);
+        if (it != last_known_tops_.end())
         {
-            const auto& top = *last_known_top_;
+            const auto& top = it->second;
             if (Simulation::HasBid(top) && Simulation::HasAsk(top))
                 center = (top.bid_price + top.ask_price) / 2.0;
             else if (Simulation::HasBid(top))
@@ -73,7 +77,7 @@ Simulation::OrderMessage RandomStrategy::make_random_order()
 
     return Simulation::OrderMessage{
         .source = options_.source,
-        .symbol = options_.symbol,
+        .symbol = symbol,
         .order_id = order_id,
         .side = side,
         .price = price,
