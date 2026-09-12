@@ -34,3 +34,12 @@ Testing/
 ipch/
 *.vcxproj
 *.vcxproj.filters
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.venv/
+*.egg
