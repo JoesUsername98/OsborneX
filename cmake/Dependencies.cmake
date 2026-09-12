@@ -19,4 +19,15 @@ FetchContent_Declare(
     GIT_TAG v1.9.1
 )
 
-FetchContent_MakeAvailable(googletest googlebenchmark)
+set(FTXUI_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(FTXUI_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(FTXUI_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(FTXUI_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+    ftxui
+    GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI.git
+    GIT_TAG v5.0.0
+)
+
+FetchContent_MakeAvailable(googletest googlebenchmark ftxui)

@@ -90,6 +90,74 @@ cmake --build --preset windows-msvc-debug --target run-tests
 cmake --build --preset windows-msvc-debug --target run-benchmarks
 ```
 
+## Running the Network Demo
+
+Three executables let you run OsborneX as a real multi-process system: a **server**
+hosting the orderbook, one or more **bots** (market participants trading a basic
+randomized strategy), and a **TUI** that shows live bids/asks and the trade tape.
+Build them like any other target (they're part of the default build):
+
+```powershell
+cmake --build --preset windows-msvc-debug --target ServerMain BotMain TuiMain
+```
+
+```bash
+cmake --build --preset linux-gcc-debug --target ServerMain BotMain TuiMain
+```
+
+All three take positional command-line arguments with sensible defaults, so they
+can be run with no arguments at all for a quick local demo.
+
+### 1. Start the server
+
+```powershell
+.\build\windows-msvc-debug\Server\Debug\ServerMain.exe [order_entry_port] [market_data_group] [market_data_port]
+```
+
+```bash
+./build/linux-gcc-debug/Server/ServerMain [order_entry_port] [market_data_group] [market_data_port]
+```
+
+Defaults: order-entry TCP port `9001`, market-data UDP multicast group `239.1.1.1:9002`.
+Press Enter in its console to stop it.
+
+### 2. Start one or more bots
+
+```powershell
+.\build\windows-msvc-debug\Bot\Debug\BotMain.exe [server_host] [order_entry_port] [market_data_group] [market_data_port] [symbol]
+```
+
+```bash
+./build/linux-gcc-debug/Bot/BotMain [server_host] [order_entry_port] [market_data_group] [market_data_port] [symbol]
+```
+
+Defaults: `127.0.0.1 9001 239.1.1.1 9002 1`. A bot retries connecting to the server
+for up to ~10 seconds, so it's fine to start it before or shortly after the server.
+Run it twice (same symbol, default `1`) to get two participants trading against
+each other. Press Enter in its console to stop it.
+
+### 3. Watch it live in the TUI
+
+```powershell
+.\build\windows-msvc-debug\Tui\Debug\TuiMain.exe [market_data_group] [market_data_port] [order_entry_host] [order_entry_port]
+```
+
+```bash
+./build/linux-gcc-debug/Tui/TuiMain [market_data_group] [market_data_port] [order_entry_host] [order_entry_port]
+```
+
+Defaults: `239.1.1.1 9002 127.0.0.1 9001`. Shows live per-symbol top-of-book and a
+scrolling trade tape; press `Ctrl+C` (or `q`, depending on terminal) to exit. It's a
+passive viewer for now — it connects an order-entry client but never sends from it,
+so wiring up manual order entry later is a small addition, not a rewrite.
+
+### One-click demo (VS Code)
+
+`.vscode/launch.json` includes compound launch configurations that start the server
+and two bots (and optionally the TUI) together — open the Run and Debug panel and
+pick **"Launch Demo: Server + 2 Bots (Windows/MSVC)"** (or the `+ TUI` / Linux/GCC
+variants). Each process gets its own integrated terminal tab.
+
 ## Project Layout
 
 ```
