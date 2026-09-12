@@ -77,6 +77,43 @@ TEST(ShardTest, CrossingAddClearsMatchedLiquidityFromTop)
     EXPECT_EQ(tob.ask_quantity, 0u);
 }
 
+TEST(ShardTest, CrossingAddPublishesTradeExecution)
+{
+    Shard shard;
+    auto& trades = shard.trade_out().add_consumer(Queue::ConsumerPolicy::Lossy);
+    shard.start();
+    shard.enqueue(MakeAdd(1, 1, Side::Buy, 100.0, 10, 1));
+    shard.enqueue(MakeAdd(1, 2, Side::Sell, 100.0, 10, 2));
+
+    ASSERT_TRUE(wait_for([&] { return shard.book_size(1) == 0; }));
+    shard.stop();
+
+    TradeExecution trade{};
+    ASSERT_EQ(trades.try_read(trade), Queue::ReadResult::Ok);
+    EXPECT_EQ(trade.symbol, 1u);
+    EXPECT_EQ(trade.bid_order_id, 1u);
+    EXPECT_EQ(trade.ask_order_id, 2u);
+    EXPECT_DOUBLE_EQ(trade.bid_price, 100.0);
+    EXPECT_DOUBLE_EQ(trade.ask_price, 100.0);
+    EXPECT_EQ(trade.quantity, 10u);
+    EXPECT_EQ(trades.try_read(trade), Queue::ReadResult::Empty);
+}
+
+TEST(ShardTest, CancelProducesNoTradeExecution)
+{
+    Shard shard;
+    auto& trades = shard.trade_out().add_consumer(Queue::ConsumerPolicy::Lossy);
+    shard.start();
+    shard.enqueue(MakeAdd(3, 9, Side::Sell, 55.0, 4, 1));
+    shard.enqueue(MakeCancel(3, 9, 2));
+
+    ASSERT_TRUE(wait_for([&] { return shard.book_size(3) == 0; }));
+    shard.stop();
+
+    TradeExecution trade{};
+    EXPECT_EQ(trades.try_read(trade), Queue::ReadResult::Empty);
+}
+
 TEST(ShardTest, CancelRemovesRestingOrder)
 {
     Shard shard;

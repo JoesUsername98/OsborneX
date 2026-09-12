@@ -18,10 +18,11 @@ bool SamePrice(Price a, Price b)
 
 } // namespace
 
-Shard::Shard(std::size_t inbound_capacity, std::size_t outbound_capacity)
+Shard::Shard(std::size_t inbound_capacity, std::size_t outbound_capacity, std::size_t trade_outbound_capacity)
     : inbound_(inbound_capacity)
     , inbound_cursor_(inbound_.add_consumer(Queue::ConsumerPolicy::Lossless))
     , outbound_(outbound_capacity)
+    , trade_outbound_(trade_outbound_capacity)
 {
 }
 
@@ -35,10 +36,11 @@ void Shard::start()
     if (running_.exchange(true))
         return;
 
-    // A prior stop() may have left the calling thread as outbound_'s
-    // recorded producer (see stop()'s comment) -- release that so the new
-    // worker thread can freely become the producer for this run.
+    // A prior stop() may have left the calling thread as outbound_'s/
+    // trade_outbound_'s recorded producer (see stop()'s comment) -- release
+    // that so the new worker thread can freely become the producer for this run.
     outbound_.reset_producer_thread();
+    trade_outbound_.reset_producer_thread();
     thread_ = std::thread(&Shard::run, this);
 }
 
@@ -52,10 +54,11 @@ void Shard::stop()
 
     // The worker thread has fully stopped -- join() establishes a
     // happens-before edge -- so it's safe, and expected, for this (likely
-    // different) calling thread to take over as outbound_'s producer while
-    // drain() publishes any top-of-book changes left over from processing
-    // whatever remained in the inbound queue.
+    // different) calling thread to take over as outbound_'s/trade_outbound_'s
+    // producer while drain() publishes any top-of-book changes and trade
+    // prints left over from processing whatever remained in the inbound queue.
     outbound_.reset_producer_thread();
+    trade_outbound_.reset_producer_thread();
     drain();
 }
 
@@ -68,6 +71,7 @@ void Shard::drain()
 
 std::size_t Shard::book_size(SymbolId symbol) const
 {
+    std::lock_guard lock{ books_mutex_ };
     const auto it = books_.find(symbol);
     if (it == books_.end())
         return 0;
@@ -76,11 +80,13 @@ std::size_t Shard::book_size(SymbolId symbol) const
 
 bool Shard::has_book(SymbolId symbol) const
 {
+    std::lock_guard lock{ books_mutex_ };
     return books_.contains(symbol);
 }
 
 TopOfBookUpdate Shard::top_of_book(SymbolId symbol) const
 {
+    std::lock_guard lock{ books_mutex_ };
     return make_top_of_book(symbol, 0);
 }
 
@@ -101,39 +107,72 @@ void Shard::run()
 
 void Shard::process(const OrderMessage& message)
 {
-    auto& book = books_[message.symbol];
+    Trades trades;
+    TopOfBookUpdate update{};
+    bool top_changed = false;
 
-    switch (message.action)
     {
-    case OrderAction::Add:
-        book.AddOrder(std::make_shared<Order>(
-            message.type,
-            message.order_id,
-            message.side,
-            message.price,
-            message.quantity));
-        break;
-    case OrderAction::Cancel:
-        book.CancelOrder(message.order_id);
-        break;
-    case OrderAction::Modify:
-        book.ModifyOrder(OrderModify{
-            message.order_id,
-            message.side,
-            message.price,
-            message.quantity });
-        break;
+        // books_/last_top_ are also read by book_size()/has_book()/top_of_book()
+        // from whichever thread owns the Shard, so every touch of either needs
+        // this lock held -- process() runs on the worker thread only, but those
+        // accessors don't.
+        std::lock_guard lock{ books_mutex_ };
+        auto& book = books_[message.symbol];
+
+        switch (message.action)
+        {
+        case OrderAction::Add:
+            trades = book.AddOrder(std::make_shared<Order>(
+                message.type,
+                message.order_id,
+                message.side,
+                message.price,
+                message.quantity));
+            break;
+        case OrderAction::Cancel:
+            book.CancelOrder(message.order_id);
+            break;
+        case OrderAction::Modify:
+            trades = book.ModifyOrder(OrderModify{
+                message.order_id,
+                message.side,
+                message.price,
+                message.quantity });
+            break;
+        }
+
+        update = make_top_of_book(message.symbol, message.ingress_sequence);
+        auto& last = last_top_[message.symbol];
+        if (!top_of_book_equal(last, update))
+        {
+            last = update;
+            top_changed = true;
+        }
     }
 
-    const auto update = make_top_of_book(message.symbol, message.ingress_sequence);
-    auto& last = last_top_[message.symbol];
-    if (!top_of_book_equal(last, update))
+    for (const auto& trade : trades)
     {
-        last = update;
+        const auto& bid = trade.GetBidTrade();
+        const auto& ask = trade.GetAskTrade();
+        trade_outbound_.push_overwrite(TradeExecution{
+            .symbol = message.symbol,
+            .sequence = message.ingress_sequence,
+            .timestamp = message.ingress_timestamp,
+            .bid_order_id = bid.orderId_,
+            .bid_price = bid.price_,
+            .ask_order_id = ask.orderId_,
+            .ask_price = ask.price_,
+            .quantity = bid.quantity_,
+        });
+    }
+
+    if (top_changed)
         outbound_.push_overwrite(update);
-    }
 }
 
+// Caller must hold books_mutex_ -- this only reads books_, never locks itself, so
+// both process() (already inside the lock) and top_of_book() (takes it first) can
+// call it without a recursive-lock deadlock.
 TopOfBookUpdate Shard::make_top_of_book(SymbolId symbol, IngressSequence sequence) const
 {
     TopOfBookUpdate update{
@@ -172,6 +211,11 @@ bool Shard::top_of_book_equal(const TopOfBookUpdate& a, const TopOfBookUpdate& b
 Queue::RingBuffer<TopOfBookUpdate>& Shard::market_data_out() noexcept
 {
     return outbound_;
+}
+
+Queue::RingBuffer<TradeExecution>& Shard::trade_out() noexcept
+{
+    return trade_outbound_;
 }
 
 } // namespace OsborneX::Simulation

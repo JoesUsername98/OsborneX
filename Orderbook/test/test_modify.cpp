@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include <chrono>
 
 #include <Orderbook/orderbook.hpp>
 
@@ -7,7 +6,7 @@ namespace OsborneX {
 namespace {
 
 TEST(OrderbookTestModify, IfUnknownOrderModified_WhenEmpty_ThenReturnsEmpty) {
-    Orderbook orderbook{ std::chrono::hours{16} };
+    Orderbook orderbook{};
 
     const auto trades = orderbook.ModifyOrder(
         OrderModify{ OrderId{99}, Side::Buy, Price{6.7}, Quantity{1} });
@@ -17,7 +16,7 @@ TEST(OrderbookTestModify, IfUnknownOrderModified_WhenEmpty_ThenReturnsEmpty) {
 }
 
 TEST(OrderbookTestModify, IfGoodTillCancelBidModified_WhenAloneOnBook_ThenPriceAndQuantityUpdated) {
-    Orderbook orderbook{ std::chrono::hours{16} };
+    Orderbook orderbook{};
     constexpr OrderId bidId{0};
     orderbook.AddOrder(std::make_shared<Order>(
         OrderType::GoodTillCancel, bidId, Side::Buy, Price{6.7}, Quantity{1}));
@@ -35,7 +34,7 @@ TEST(OrderbookTestModify, IfGoodTillCancelBidModified_WhenAloneOnBook_ThenPriceA
 }
 
 TEST(OrderbookTestModify, IfGoodTillCancelBidModified_WhenAskAtSamePrice_ThenTradesGenerated) {
-    Orderbook orderbook{ std::chrono::hours{16} };
+    Orderbook orderbook{};
     constexpr OrderId askId{0};
     constexpr OrderId bidId{1};
     orderbook.AddOrder(std::make_shared<Order>(
@@ -57,7 +56,7 @@ TEST(OrderbookTestModify, IfGoodTillCancelBidModified_WhenAskAtSamePrice_ThenTra
 }
 
 TEST(OrderbookTestModify, IfGoodTillCancelBidModified_WhenChangedToSell_ThenMovedToAskSide) {
-    Orderbook orderbook{ std::chrono::hours{16} };
+    Orderbook orderbook{};
     constexpr OrderId orderId{0};
     orderbook.AddOrder(std::make_shared<Order>(
         OrderType::GoodTillCancel, orderId, Side::Buy, Price{6.7}, Quantity{1}));
@@ -74,24 +73,8 @@ TEST(OrderbookTestModify, IfGoodTillCancelBidModified_WhenChangedToSell_ThenMove
     ASSERT_EQ(orderInfo.asks_.front().quantity_, Quantity{2});
 }
 
-TEST(OrderbookTestModify, IfGoodForDayBidModified_WhenAloneOnBook_ThenUpdatedOnBook) {
-    Orderbook orderbook{ std::chrono::hours{16} };
-    constexpr OrderId bidId{0};
-    orderbook.AddOrder(std::make_shared<Order>(
-        OrderType::GoodForDay, bidId, Side::Buy, Price{6.7}, Quantity{1}));
-
-    const auto trades = orderbook.ModifyOrder(
-        OrderModify{ bidId, Side::Buy, Price{5.5}, Quantity{4} });
-    const auto orderInfo = orderbook.GetOrderInfos();
-
-    ASSERT_TRUE(trades.empty());
-    ASSERT_EQ(orderbook.Size(), std::size_t{1});
-    ASSERT_EQ(orderInfo.bids_.front().price_, Price{5.5});
-    ASSERT_EQ(orderInfo.bids_.front().quantity_, Quantity{4});
-}
-
 TEST(OrderbookTestModify, IfGoodTillCancelBidModified_WhenPartiallyFilled_ThenReplacedWithNewQuantity) {
-    Orderbook orderbook{ std::chrono::hours{16} };
+    Orderbook orderbook{};
     constexpr OrderId askId{0};
     constexpr OrderId bidId{1};
     orderbook.AddOrder(std::make_shared<Order>(
@@ -112,7 +95,7 @@ TEST(OrderbookTestModify, IfGoodTillCancelBidModified_WhenPartiallyFilled_ThenRe
 }
 
 TEST(OrderbookTestModify, IfGoodTillCancelBidModified_WhenPriceChanges_ThenOldLevelRemoved) {
-    Orderbook orderbook{ std::chrono::hours{16} };
+    Orderbook orderbook{};
     constexpr OrderId bidId{0};
     orderbook.AddOrder(std::make_shared<Order>(
         OrderType::GoodTillCancel, bidId, Side::Buy, Price{6.7}, Quantity{1}));

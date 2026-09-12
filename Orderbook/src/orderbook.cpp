@@ -115,21 +115,6 @@ Trades Orderbook::AddOrder(OrderPointer order)
     return MatchOrders();
 }
 
-std::chrono::system_clock::time_point Orderbook::GetNextMarketClose(
-    std::chrono::system_clock::time_point asof) const
-{
-    using namespace std::chrono;
-    const zoned_time zoned{ current_zone(), asof };
-    const auto localNow = zoned.get_local_time();
-    const local_days day{ floor<days>(localNow) };
-    auto close = local_seconds{ day } + marketCloseHour_;
-
-    if (localNow >= close)
-        close += days{ 1 };
-
-    return zoned_time{ current_zone(), close }.get_sys_time();
-}
-
 void Orderbook::CancelOrders(OrderIds orderIds)
 {
     for (const auto& orderId : orderIds)

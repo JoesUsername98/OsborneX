@@ -91,7 +91,6 @@ Single-threaded matching engine, namespace `OsborneX`. Public headers in `inc/Or
 - `AddOrder` handles order-type-specific admission logic first (`FillAndKill` requires an immediate match; `Market` orders adopt the worst opposing price and convert to `GoodTillCancel` via `Order::ToGoodTillCancel`; `FillOrKill` requires `CanFullyFill` across price levels) before inserting and calling `MatchOrders()`.
 - `MatchOrders()` walks best bid vs. best ask while they cross, fills at the resting order's price, removes fully-filled orders, and cancels any newly-exposed `FillAndKill` order at the top of book after each price-level exhausts.
 - `ModifyOrder` is implemented as cancel + re-add (`orderbook.cpp:178`), which changes the order's queue priority.
-- `GetNextMarketClose` uses `std::chrono` zoned time against `marketCloseHour_`; it does not account for weekends/holidays (every day is treated as a trading day) and interprets the close hour in the system's local timezone.
 - Order semantics live in `order.hpp`: `Fill`/`ToGoodTillCancel` currently swallow error cases silently (commented-out `std::expected` returns) rather than surfacing them — be aware of this when changing fill/validation logic.
 - `test/test_lifecycle.cpp` (renamed from `test_threading.cpp`) is a plain single-threaded construct/destroy check — `Orderbook` itself has no threading to test. Real "one `Orderbook`, one thread" coverage lives in `Sharding/test/test_shard.cpp`.
 
