@@ -1,0 +1,22 @@
+[build-system]
+requires = ["uv_build>=0.8,<0.9"]
+build-backend = "uv_build"
+
+[project]
+name = "osbornex"
+version = "0.1.0"
+description = "Pure-Python client and orchestration for the OsborneX practice matching engine"
+requires-python = ">=3.10"
+dependencies = []
+
+[dependency-groups]
+# trademetrics is a dev-time convenience for scripts under strategies/ and
+# examples/ -- the osbornex library itself has no dependency on it and never
+# imports it (see Python/strategies/my_strategy.py for the integration point).
+dev = ["pytest>=7", "trademetrics"]
+
+[tool.uv.sources]
+trademetrics = { path = "../TradeMetrics", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

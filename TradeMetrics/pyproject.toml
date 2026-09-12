@@ -1,0 +1,16 @@
+[build-system]
+requires = ["uv_build>=0.8,<0.9"]
+build-backend = "uv_build"
+
+[project]
+name = "trademetrics"
+version = "0.1.0"
+description = "Generic PnL, drawdown, and trading performance metrics -- no dependency on any specific trading system"
+requires-python = ">=3.10"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=7"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
